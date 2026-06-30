@@ -497,6 +497,40 @@ async function startServer() {
                         },
                       },
                       {
+                        name: "logTrade",
+                        description: "Logs a new trading setup to the Commander's Trades Log. Call this when in Trading Mode to log assets, direction (LONG/SHORT), entry, stop loss (SL), take profit (TP), and SMC strategy notes.",
+                        parameters: {
+                          type: Type.OBJECT,
+                          properties: {
+                            asset: {
+                              type: Type.STRING,
+                              description: "The trading asset pair or ticker symbol (e.g. BTCUSDT, EURUSD, XAUUSD)",
+                            },
+                            tradeType: {
+                              type: Type.STRING,
+                              description: "The trade direction. Allowed values: LONG, SHORT",
+                            },
+                            entryPrice: {
+                              type: Type.STRING,
+                              description: "The entry price level or area",
+                            },
+                            takeProfit: {
+                              type: Type.STRING,
+                              description: "The target take profit level (TP)",
+                            },
+                            stopLoss: {
+                              type: Type.STRING,
+                              description: "The stop loss protection level (SL)",
+                            },
+                            notes: {
+                              type: Type.STRING,
+                              description: "Specific strategy analysis notes (e.g. FVG sweep, Market Structure Shift, Order Block mitigation, probability score)",
+                            },
+                          },
+                          required: ["asset", "tradeType", "entryPrice", "takeProfit", "stopLoss", "notes"],
+                        },
+                      },
+                      {
                         name: "changeEmotion",
                         description: "Changes Haya's real-time emotional vibe and face expressions. Call this when you feel excited, proud, playful, concerned, thinking, curious, confident, or happy in response to the user's input.",
                         parameters: {
@@ -769,7 +803,7 @@ async function startServer() {
             // Trigger natural proactive greeting upon voice synchronization matching the chosen persona
             const personaObj = HAYA_PERSONAS.find(p => p.id === selectedPersonaId) || HAYA_PERSONAS[0];
             session.sendRealtimeInput({
-              text: `Hello Haya! Please initiate a dynamic and warm proactive companion greeting matching your active persona: ${personaObj.name}. Warm greeting instruction: ${personaObj.greeting}. Speak biculturally, mix English and Roman Hinglish with polite care.`
+              text: `Hello Haya! Please initiate a dynamic and warm proactive companion greeting matching your active persona: ${personaObj.name}. Setup status: ${personaObj.oneLiner}. Speak biculturally, mix English and Roman Hinglish with polite care.`
             });
 
           } catch (err: any) {

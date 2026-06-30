@@ -139,9 +139,29 @@ export default function App() {
   // Custom configuration states for Haya rendering engine and unified settings menu
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const [settingsTab, setSettingsTab] = useState<"voice" | "memory" | "browser" | "vision" | "privacy" | "android" | "history">("voice");
+  const [settingsTab, setSettingsTab] = useState<"voice" | "memory" | "browser" | "vision" | "privacy" | "android" | "history" | "trades">("voice");
   const [isManualGlitching, setIsManualGlitching] = useState(false);
   const [memories, setMemories] = useState<Memory[]>([]);
+
+  // Trades Log State
+  interface TradeSetup {
+    id: string;
+    asset: string;
+    tradeType: "LONG" | "SHORT";
+    entryPrice: string;
+    takeProfit: string;
+    stopLoss: string;
+    notes: string;
+    timestamp: string;
+  }
+  const [trades, setTrades] = useState<TradeSetup[]>(() => {
+    try {
+      const saved = localStorage.getItem("haya_trades_log");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Persona switch logging history
   const [personaHistory, setPersonaHistory] = useState<Array<{
@@ -894,6 +914,40 @@ export default function App() {
                       gesture,
                       message: `Haya successfully triggered her physical holographic gesture to ${gesture}.`,
                     },
+                  })
+                );
+              }
+
+              else if (call.name === "logTrade") {
+                const { asset, tradeType, entryPrice, takeProfit, stopLoss, notes } = call.args;
+                triggerOverlay(`Logged ${tradeType} Trade on ${asset} 📈`);
+                
+                const newTrade = {
+                  id: Math.random().toString(36).substring(2, 9),
+                  asset,
+                  tradeType: tradeType as "LONG" | "SHORT",
+                  entryPrice,
+                  takeProfit,
+                  stopLoss,
+                  notes,
+                  timestamp: new Date().toISOString()
+                };
+
+                setTrades((prev) => {
+                  const updated = [newTrade, ...prev].slice(0, 100);
+                  localStorage.setItem("haya_trades_log", JSON.stringify(updated));
+                  return updated;
+                });
+
+                ws.send(
+                  JSON.stringify({
+                    type: "toolResponse",
+                    callId: call.id,
+                    name: call.name,
+                    result: {
+                      success: true,
+                      message: `Trade successfully logged to the Commander's Trades Log: logged ${tradeType} setup on ${asset}.`
+                    }
                   })
                 );
               }
@@ -1839,6 +1893,20 @@ export default function App() {
                   <button
                     onClick={() => {
                       triggerHaptic(15);
+                      setSettingsTab("trades");
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono tracking-wide transition-all cursor-pointer whitespace-nowrap ${
+                      settingsTab === "trades"
+                        ? "bg-purple-500/10 border border-purple-500/30 text-purple-400 font-bold"
+                        : "bg-transparent border border-transparent text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                    Trades Log
+                  </button>
+                  <button
+                    onClick={() => {
+                      triggerHaptic(15);
                       setSettingsTab("history");
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono tracking-wide transition-all cursor-pointer whitespace-nowrap ${
@@ -2460,6 +2528,91 @@ export default function App() {
                                 <div className="text-right flex flex-col items-end gap-0.5">
                                   <span className="text-[10px] font-mono text-slate-300">{timeStr}</span>
                                   <span className="text-[8px] font-mono text-slate-500 uppercase">{dateStr}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 8. TRADES LOG TAB */}
+                  {settingsTab === "trades" && (
+                    <div className="space-y-6">
+                      <div className="p-4 bg-[#09151c]/50 border border-emerald-500/10 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="w-4 h-4 text-emerald-400" />
+                            <span className="text-xs font-bold text-emerald-400 tracking-wider font-mono uppercase">
+                              SMC Trades Journal
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              triggerHaptic(30);
+                              setTrades([]);
+                              localStorage.removeItem("haya_trades_log");
+                              triggerOverlay("Trades Log Purged");
+                            }}
+                            className="text-[10px] text-rose-400 hover:text-rose-300 transition-all font-mono"
+                          >
+                            PURGE JOURNAL
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
+                          SMC structures, entry setups, and probability arrays logged dynamically by Haya during chart evaluation sessions.
+                        </p>
+                      </div>
+
+                      {trades.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-8 bg-slate-900/10 border border-dashed border-white/5 rounded-2xl space-y-2 text-center">
+                          <BookOpen className="w-8 h-8 text-slate-700 animate-pulse" />
+                          <p className="text-xs font-mono text-slate-500">No trading setups logged yet</p>
+                          <p className="text-[10px] text-slate-600">Switch to Trading Mode and instruct Haya to log your setups</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {trades.map((t) => {
+                            const date = new Date(t.timestamp);
+                            const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+                            return (
+                              <div
+                                key={t.id}
+                                className="p-4 bg-slate-900/30 border border-white/5 rounded-2xl space-y-3 transition-all hover:bg-slate-900/50 hover:border-emerald-500/10"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs font-bold text-white tracking-wide">{t.asset}</span>
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-mono tracking-wider ${
+                                      t.tradeType === "LONG"
+                                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                                        : "bg-rose-500/15 text-rose-400 border border-rose-500/20"
+                                    }`}>
+                                      {t.tradeType}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] font-mono text-slate-500">{dateStr}</span>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 py-1.5 px-3 bg-slate-950/40 rounded-xl border border-white/5 font-mono text-[10px]">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[8px] text-slate-500 uppercase tracking-widest">Entry</span>
+                                    <span className="text-slate-300 font-semibold">{t.entryPrice}</span>
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[8px] text-rose-500/60 uppercase tracking-widest">Stop Loss</span>
+                                    <span className="text-rose-400/90 font-semibold">{t.stopLoss}</span>
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[8px] text-emerald-500/60 uppercase tracking-widest">Take Profit</span>
+                                    <span className="text-emerald-400/90 font-semibold">{t.takeProfit}</span>
+                                  </div>
+                                </div>
+
+                                <div className="bg-slate-950/20 rounded-xl p-2.5 border border-white/5">
+                                  <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Strategy Analysis</span>
+                                  <p className="text-[10px] text-slate-400 font-mono leading-relaxed whitespace-pre-wrap">{t.notes}</p>
                                 </div>
                               </div>
                             );
