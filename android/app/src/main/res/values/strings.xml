@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Haya Assistant</string>
+    <string name="notification_channel_name">Haya Screen Capture</string>
+    <string name="notification_channel_desc">Required for background screen projection and streaming.</string>
+</resources>

@@ -1,0 +1,18 @@
+HAYA Animation Engine Video Assets Folder
+=========================================
+
+To enable the HD Live video features of HAYA, place your three video files in this directory:
+1. IDLE.mp4
+2. TALKING.mp4
+3. EXPRESSING.mp4
+
+How to upload files to this directory in AI Studio:
+1. In the left-hand sidebar of your AI Studio Code Editor, you will see a file explorer.
+2. Locate the folder named "public".
+3. Right-click on the "public" folder or hover over it to see options to upload files, OR drag-and-drop the files directly from your computer into the "public" folder in the sidebar.
+4. Make sure the filenames match the case and naming exactly:
+   - IDLE.mp4
+   - TALKING.mp4
+   - EXPRESSING.mp4
+
+Once the files are uploaded, the fallback Vector HUD mode can be toggled to "HD Live" mode in the application UI, and HAYA's video engine will start using your high-fidelity video animations!

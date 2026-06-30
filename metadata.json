@@ -1,0 +1,1 @@
+{"name":"HAYA version 0 ","description":"A real-time, low-latency voice-to-voice AI assistant named Haya. Features raw audio streaming, function calling, and a premium animated futuristic interface.","requestFramePermissions":["microphone","display-capture"],"majorCapabilities":["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]}

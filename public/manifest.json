@@ -1,0 +1,31 @@
+{
+  "short_name": "Haya Voice",
+  "name": "Remix: Haya Voice Assistant",
+  "description": "A real-time, low-latency voice-to-voice AI assistant named Haya. Features raw audio streaming, function calling, and a premium animated futuristic interface.",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": ".",
+  "background_color": "#020203",
+  "theme_color": "#020203",
+  "display": "standalone",
+  "orientation": "portrait",
+  "categories": ["utilities", "productivity"]
+}
