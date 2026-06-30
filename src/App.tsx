@@ -90,6 +90,7 @@ const PERSONA_GLOW_RGB_MAP: Record<string, string> = {
   motivation: "239, 68, 68", // Rose/Red
   romantic: "236, 72, 153", // Pink
   sexy: "168, 85, 247", // Purple
+  career: "99, 102, 241", // Indigo
 };
 
 export default function App() {
@@ -1587,6 +1588,7 @@ export default function App() {
                 red: "text-rose-400 border-rose-500/35 bg-rose-500/10 shadow-[0_0_12px_rgba(244,63,94,0.2)]",
                 pink: "text-pink-400 border-pink-500/35 bg-pink-500/10 shadow-[0_0_12px_rgba(236,72,153,0.2)]",
                 purple: "text-purple-400 border-purple-500/35 bg-purple-500/10 shadow-[0_0_12px_rgba(168,85,247,0.2)]",
+                indigo: "text-indigo-400 border-indigo-500/35 bg-indigo-500/10 shadow-[0_0_12px_rgba(99,102,241,0.2)]",
               };
               
               return (
