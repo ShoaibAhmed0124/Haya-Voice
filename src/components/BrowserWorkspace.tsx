@@ -670,34 +670,16 @@ export default function BrowserWorkspace({
                     Open in Local Browser (Default Chrome/Edge)
                   </button>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {onToggleVision && (
-                      <button
-                        onClick={() => {
-                          onToggleVision();
-                        }}
-                        className={`flex items-center justify-center gap-1.5 font-mono text-[10px] border py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
-                          isVisionActive
-                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold"
-                            : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
-                        }`}
-                      >
-                        <Monitor className="w-3.5 h-3.5" />
-                        {isVisionActive ? "Vision Is Active" : "Sync Real-Time Vision"}
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => {
-                        setEmbeddedForcedTabs(prev => ({ ...prev, [activeTab.id]: true }));
-                        triggerOverlay("Bypassing sandboxed security");
-                      }}
-                      className="flex items-center justify-center gap-1.5 font-mono text-[10px] bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 py-2.5 px-3 rounded-xl cursor-pointer transition-all"
-                    >
-                      <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
-                      Force Embedded Mode
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      setEmbeddedForcedTabs(prev => ({ ...prev, [activeTab.id]: true }));
+                      triggerOverlay("Bypassing sandboxed security");
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 font-mono text-[10px] bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 py-2.5 px-3 rounded-xl cursor-pointer transition-all"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    Force Embedded Bypassing (Sandbox Mode)
+                  </button>
                 </div>
 
                 <div className="text-center">

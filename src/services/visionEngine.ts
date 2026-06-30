@@ -56,8 +56,30 @@ export class VisionEngine {
       this.stopCapture();
     }
 
+    // Android Native WebView Wrapper Bridge Detection
+    const nativeAndroid = (window as any).Android;
+    if (nativeAndroid && typeof nativeAndroid.startScreenCapture === "function") {
+      console.log("[VisionEngine] Initiating native Android MediaProjection screen capture...");
+      
+      // Inject global frame callback
+      (window as any).onAndroidScreenFrameCaptured = (base64: string) => {
+        if (this.onFrameCaptured) {
+          this.onFrameCaptured(base64);
+        }
+      };
+
+      try {
+        nativeAndroid.startScreenCapture();
+        return true;
+      } catch (err: any) {
+        console.error("Failed to trigger Android native capture:", err);
+        this.lastError = String(err);
+        return false;
+      }
+    }
+
+    // Standard Desktop Browser WebAPI Fallback
     try {
-      // Trigger native Screen Capture API
       this.stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: "monitor", // prefer entire screen, but browser lets user choose
@@ -103,6 +125,17 @@ export class VisionEngine {
     if (this.captureIntervalId) {
       clearInterval(this.captureIntervalId);
       this.captureIntervalId = null;
+    }
+
+    // Stop Native Android service if active
+    const nativeAndroid = (window as any).Android;
+    if (nativeAndroid && typeof nativeAndroid.stopScreenCapture === "function") {
+      try {
+        nativeAndroid.stopScreenCapture();
+      } catch (e) {
+        console.warn("Failed to stop Android native capture service:", e);
+      }
+      delete (window as any).onAndroidScreenFrameCaptured;
     }
 
     if (this.stream) {

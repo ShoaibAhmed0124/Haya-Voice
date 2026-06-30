@@ -137,7 +137,7 @@ export default function App() {
 
   // Custom configuration states for Haya rendering engine and unified settings menu
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const isChatOpen = false;
+
   const [settingsTab, setSettingsTab] = useState<"voice" | "memory" | "browser" | "vision" | "privacy" | "android" | "history">("voice");
   const [isManualGlitching, setIsManualGlitching] = useState(false);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -455,129 +455,7 @@ export default function App() {
     isMutedRef.current = isMuted;
   }, [isMuted]);
 
-  // Modular background wake-word SpeechRecognition effect
-  const recognitionRef = useRef<any>(null);
-  const wakeWordTimeoutRef = useRef<any>(null);
-
-  useEffect(() => {
-    // Only run when completely offline and enabled
-    if (state !== "disconnected" && state !== "error") {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.onend = null;
-          recognitionRef.current.stop();
-        } catch (_) {}
-        recognitionRef.current = null;
-      }
-      if (wakeWordTimeoutRef.current) {
-        clearTimeout(wakeWordTimeoutRef.current);
-      }
-      return;
-    }
-
-    if (!wakeWordEnabled) {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.onend = null;
-          recognitionRef.current.stop();
-        } catch (_) {}
-        recognitionRef.current = null;
-      }
-      if (wakeWordTimeoutRef.current) {
-        clearTimeout(wakeWordTimeoutRef.current);
-      }
-      return;
-    }
-
-    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRec) {
-      console.warn("Web Speech API not supported in this browser.");
-      return;
-    }
-
-    let activeRec: any = null;
-    let isStoppedManually = false;
-
-    const initWakeWord = () => {
-      if (stateRef.current !== "disconnected" && stateRef.current !== "error") return;
-      if (!wakeWordEnabled) return;
-
-      try {
-        activeRec = new SpeechRec();
-        activeRec.continuous = true;
-        activeRec.interimResults = true;
-        activeRec.lang = "en-US";
-
-        activeRec.onresult = (e: any) => {
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            const result = e.results[i];
-            const text = result[0].transcript.toLowerCase().trim();
-            console.log("Background wake-word stream:", text);
-
-            // Responsive trigger words including typical speech-to-text mistranscriptions of HAYA
-            const matchTriggers = [
-              "haya", "hiya", "heya", "higher", "hire", "hyatt", "hinata", "hina",
-              "hey haya", "hi haya", "hello haya", "hey hyatt", "hey higher", "hello higher", "hi higher", "heya haya", "hiya haya",
-              "ok haya", "okay haya", "suno haya", "hey hinata"
-            ];
-
-            const matchFound = matchTriggers.some(trigger => text.includes(trigger));
-
-            if (matchFound) {
-              console.log("Wake word detected! Launching hands-free Haya session.");
-              isStoppedManually = true;
-              try {
-                activeRec.onend = null;
-                activeRec.stop();
-              } catch (_) {}
-              triggerOverlay("Wake-word detected! 🦋");
-              startSession();
-              break;
-            }
-          }
-        };
-
-        activeRec.onend = () => {
-          if (isStoppedManually) return;
-          if (stateRef.current === "disconnected" || stateRef.current === "error") {
-            wakeWordTimeoutRef.current = setTimeout(() => {
-              if (stateRef.current === "disconnected" || stateRef.current === "error") {
-                try {
-                  activeRec.start();
-                } catch (_) {
-                  initWakeWord();
-                }
-              }
-            }, 800);
-          }
-        };
-
-        activeRec.onerror = (err: any) => {
-          console.log("Wake word recognition silence or minor error:", err.error);
-        };
-
-        activeRec.start();
-        recognitionRef.current = activeRec;
-      } catch (err) {
-        console.error("Failed to start wake word listener:", err);
-      }
-    };
-
-    initWakeWord();
-
-    return () => {
-      isStoppedManually = true;
-      if (wakeWordTimeoutRef.current) {
-        clearTimeout(wakeWordTimeoutRef.current);
-      }
-      if (activeRec) {
-        try {
-          activeRec.onend = null;
-          activeRec.stop();
-        } catch (_) {}
-      }
-    };
-  }, [state, wakeWordEnabled]);
+  // Background wake-word detection removed completely to prevent continuous microphone monitoring.
 
   // Clean up all audio nodes and socket on unmount
   useEffect(() => {
@@ -1632,18 +1510,7 @@ export default function App() {
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse border border-[#020203]" />
           </button>
 
-          {/* CHAT WORKSPACE TRIGGER */}
-          <button
-            onClick={() => {
-              triggerHaptic(30);
-              setIsChatOpen(true);
-            }}
-            className="p-2.5 rounded-full bg-cyan-950/30 border border-cyan-500/20 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/60 hover:border-cyan-500/45 transition-all pointer-events-auto cursor-pointer shadow-lg backdrop-blur-md relative animate-pulse"
-            title="Haya Dedicated Chat Workspace"
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-cyan-400 rounded-full animate-pulse border border-[#020203]" />
-          </button>
+
 
           <button
             onClick={() => {
@@ -1705,38 +1572,7 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* DEDICATED CHAT WORKSPACE & IMAGE STUDIO LAUNCH CARD */}
-        <div className="w-full max-w-lg mx-auto relative z-30 px-4 mb-3">
-          <motion.button
-            whileHover={{ scale: 1.02, translateY: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => {
-              triggerHaptic(30);
-              setIsChatOpen(true);
-            }}
-            className="w-full py-3 px-4 bg-gradient-to-r from-purple-950/40 to-cyan-950/40 hover:from-purple-900/40 hover:to-cyan-900/40 border border-purple-500/30 hover:border-cyan-400/40 rounded-2xl flex items-center justify-between gap-3 backdrop-blur-xl shadow-[0_12px_30px_rgba(168,85,247,0.1)] group transition-all duration-300 pointer-events-auto cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 group-hover:text-cyan-400 group-hover:border-cyan-400/30 transition-all">
-                <MessageSquare className="w-5 h-5 animate-pulse" />
-              </div>
-              <div className="text-left">
-                <h4 className="text-xs font-bold font-mono tracking-wider text-slate-100 uppercase flex items-center gap-2">
-                  <span>LAUNCH CHAT WORKSPACE</span>
-                  <span className="text-[8px] px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/25 rounded-full uppercase tracking-widest font-mono">
-                    Image Studio
-                  </span>
-                </h4>
-                <p className="text-[10px] text-slate-400 font-sans mt-0.5 group-hover:text-slate-300 transition-colors">
-                  Open dedicated messenger UI & Stable Diffusion canvas.
-                </p>
-              </div>
-            </div>
-            <div className="p-1.5 rounded-lg bg-white/5 text-slate-400 group-hover:text-slate-100 group-hover:bg-white/10 transition-all">
-              <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
-            </div>
-          </motion.button>
-        </div>
+
 
         {/* BUILT-IN PERSONA SELECTOR CAPSULE BAR (Inspired by Grok) */}
         <div className="w-full max-w-lg mx-auto relative z-30 px-4 mb-3 flex justify-center">
@@ -1772,7 +1608,7 @@ export default function App() {
         </div>
 
         {/* 3. SINGLE FLOATING COMMAND DOCK */}
-        <footer className="w-full z-30 relative px-4 pb-22">
+        <footer className="w-full z-30 relative px-4 pb-6">
           <div className="relative flex items-center bg-slate-950/25 border border-white/5 backdrop-blur-2xl rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.8)] px-4 py-2 gap-3 max-w-lg mx-auto transition-all duration-300 hover:border-white/10">
             
             {/* Waveform Visualization as subtle background inside the dock */}
@@ -1844,30 +1680,6 @@ export default function App() {
                   <Mic className="w-4.5 h-4.5" />
                 )}
               </motion.button>
-
-              {/* DOCK MUTE BUTTON */}
-              {state !== "disconnected" && state !== "error" && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    triggerHaptic(20);
-                    setIsMuted(!isMuted);
-                    triggerOverlay(!isMuted ? "Microphone Muted 🔇" : "Microphone Active 🎙️");
-                  }}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 border ${
-                    isMuted
-                      ? "bg-red-500/15 border-red-500/35 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.25)]"
-                      : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
-                  }`}
-                  title={isMuted ? "Unmute Microphone" : "Mute Microphone"}
-                >
-                  {isMuted ? <MicOff className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
-                </motion.button>
-              )}
             </div>
 
             {/* INPUT FIELD FOR TYPING OPTIONAL MESSAGE (ENABLE INCASE LIVE MODE DOES NOT WORK) */}
@@ -1898,44 +1710,6 @@ export default function App() {
                   </motion.button>
                 )}
               </form>
-            </div>
-
-             {/* Modern, unified right action toggles for Browser, Vision, and Chat */}
-            <div className="relative z-10 flex items-center gap-1 border-l border-white/5 pl-2">
-
-              <button
-                disabled={state === "disconnected" || state === "error"}
-                onClick={() => {
-                  triggerHaptic(15);
-                  const browserEngine = BrowserEngine.getInstance();
-                  const visible = !browserEngine.isVisible();
-                  browserEngine.setVisible(visible);
-                  triggerOverlay(visible ? "Browser Workspace Active" : "Browser Workspace Sleeping");
-                }}
-                className={`p-2 rounded-full border transition-all cursor-pointer ${
-                  isBrowserActive
-                    ? "bg-purple-500/15 border-purple-500/30 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
-                    : "bg-transparent border-transparent text-slate-500 hover:text-slate-300"
-                } disabled:opacity-25`}
-                title={isBrowserActive ? "Hide Browser Workspace" : "Show Browser Workspace"}
-              >
-                <Globe className="w-4 h-4" />
-              </button>
-              <button
-                disabled={state === "disconnected" || state === "error"}
-                onClick={() => {
-                  triggerHaptic(15);
-                  toggleVisionManual();
-                }}
-                className={`p-2 rounded-full border transition-all cursor-pointer ${
-                  isVisionActive
-                    ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.2)]"
-                    : "bg-transparent border-transparent text-slate-500 hover:text-slate-300"
-                } disabled:opacity-25`}
-                title={isVisionActive ? "Deactivate Screen Vision" : "Activate Screen Vision"}
-              >
-                <Eye className="w-4 h-4" />
-              </button>
             </div>
           </div>
         </footer>
@@ -2276,28 +2050,17 @@ export default function App() {
                       </div>
 
                       {/* Vision action triggers */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={toggleVisionManual}
-                          className={`py-2 px-3 rounded-xl border font-mono text-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                            isVisionActive
-                              ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
-                              : "bg-slate-900/40 border-white/5 text-slate-400 hover:text-slate-200"
-                          }`}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          {isVisionActive ? "Deactivate Vision" : "Stream Screen"}
-                        </button>
+                      <div className="flex gap-2">
                         <button
                           onClick={() => {
                             const comp = ComputerUseEngine.getInstance();
                             comp.setCursorFollow(!comp.isCursorFollowActive());
                             triggerOverlay(comp.isCursorFollowActive() ? "Cursor Tracking ON" : "Cursor Tracking OFF");
                           }}
-                          className="py-2 px-3 rounded-xl border border-white/5 bg-slate-900/40 text-slate-400 hover:text-slate-200 font-mono text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+                          className="w-full py-2.5 px-3 rounded-xl border border-white/5 bg-slate-900/40 text-slate-400 hover:text-slate-200 font-mono text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
                           <Cpu className="w-3.5 h-3.5" />
-                          Toggle Tracking
+                          Toggle Cursor Tracking
                         </button>
                       </div>
 

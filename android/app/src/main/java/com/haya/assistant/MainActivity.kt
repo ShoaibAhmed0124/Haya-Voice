@@ -31,10 +31,9 @@ class MainActivity : AppCompatActivity() {
     private val OVERLAY_PERMISSION_REQUEST_CODE = 201
     private val SCREEN_CAPTURE_REQUEST_CODE = 202
 
-    private val requiredPermissions = mutableListOf(
-        Manifest.permission.RECORD_AUDIO,
-        Manifest.permission.CAMERA
-    ).apply {
+    private val requiredPermissions = ArrayList<String>().apply {
+        add(Manifest.permission.RECORD_AUDIO)
+        add(Manifest.permission.CAMERA)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -43,16 +42,17 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        Companion.instance = this
 
         webView = findViewById(R.id.webview)
         setupWebView()
 
-        // Step 1: Request standard runtime permissions before loading URL
+        // Step 1: Request standard runtime permissions (Mic, Camera, Notifications), then load PWA immediately!
+        // We DO NOT automatically request Screen Capture or Overlay permission on startup.
         if (!hasRuntimePermissions()) {
             ActivityCompat.requestPermissions(this, requiredPermissions, RUNTIME_PERMISSIONS_REQUEST_CODE)
         } else {
-            // Permissions already granted, proceed with sequential flow
-            checkOverlayPermission()
+            loadPwa()
         }
     }
 
@@ -62,7 +62,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkOverlayPermission() {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == RUNTIME_PERMISSIONS_REQUEST_CODE) {
+            // Proceed to load PWA on startup regardless of permissions (graceful degradation)
+            loadPwa()
+        }
+    }
+
+    // Natively trigger overlay permission check and media projection only when requested by JavaScript
+    private fun checkOverlayPermissionAndRequestCapture() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Enable Draw Overlays permission for Haya Assistant", Toast.LENGTH_LONG).show()
             val intent = Intent(
@@ -80,18 +93,6 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(projectionManager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST_CODE)
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == RUNTIME_PERMISSIONS_REQUEST_CODE) {
-            // App continues loading even if some permissions are denied
-            checkOverlayPermission()
-        }
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
@@ -101,9 +102,10 @@ class MainActivity : AppCompatActivity() {
             }
             SCREEN_CAPTURE_REQUEST_CODE -> {
                 if (resultCode == Activity.RESULT_OK && data != null) {
-                    // Start capture service with the projection intent data
+                    // Start capture service with the projection intent data and resultCode
                     val serviceIntent = Intent(this, CaptureService::class.java).apply {
-                        putExtras(data)
+                        putExtra("resultCode", resultCode)
+                        putExtra("data", data)
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(serviceIntent)
@@ -114,9 +116,6 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     Toast.makeText(this, "Screen capture permission denied", Toast.LENGTH_SHORT).show()
                 }
-                
-                // Load PWA after permissions flow is fully complete
-                loadPwa()
             }
         }
     }
@@ -160,8 +159,23 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
             fun postMessage(payload: String) {
-                // Can communicate back from React to Android
                 Toast.makeText(this@MainActivity, "Haya Signal: $payload", Toast.LENGTH_SHORT).show()
+            }
+
+            @android.webkit.JavascriptInterface
+            fun startScreenCapture() {
+                runOnUiThread {
+                    checkOverlayPermissionAndRequestCapture()
+                }
+            }
+
+            @android.webkit.JavascriptInterface
+            fun stopScreenCapture() {
+                runOnUiThread {
+                    val serviceIntent = Intent(this@MainActivity, CaptureService::class.java)
+                    stopService(serviceIntent)
+                    Toast.makeText(this@MainActivity, "Screen capture service stopped", Toast.LENGTH_SHORT).show()
+                }
             }
         }, "Android")
     }
@@ -208,6 +222,26 @@ class MainActivity : AppCompatActivity() {
             webView.goBack()
         } else {
             super.onBackPressed()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (Companion.instance == this) {
+            Companion.instance = null
+        }
+    }
+
+    companion object {
+        private var instance: MainActivity? = null
+
+        fun sendScreenFrameToWebView(base64: String) {
+            instance?.runOnUiThread {
+                instance?.webView?.evaluateJavascript(
+                    "if (window.onAndroidScreenFrameCaptured) { window.onAndroidScreenFrameCaptured('$base64'); }",
+                    null
+                )
+            }
         }
     }
 }
