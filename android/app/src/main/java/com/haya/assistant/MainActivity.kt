@@ -180,9 +180,7 @@ class MainActivity : AppCompatActivity() {
             
             intent.addCategory(Intent.CATEGORY_BROWSABLE)
             intent.setComponent(null)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.XV) {
-                intent.selector = null
-            }
+            intent.selector = null
 
             if (packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null) {
                 startActivity(intent)
