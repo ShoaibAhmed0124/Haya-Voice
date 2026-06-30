@@ -360,28 +360,26 @@ export default function HologramEngine({
   // 7. Universal gesture unlock to satisfy mobile autoplay policies
   const unlockAllVideos = () => {
     if (unlockedRef.current) return;
-    console.log("[Haya Behavior Engine] Initializing and unlocking all 5 video decoders for mobile...");
+    console.log("[Haya Behavior Engine] Initializing and preloading all 5 video decoders for mobile...");
 
     BEHAVIOR_KEYS.forEach((key) => {
       const video = videoRefs[key].current;
       if (video) {
         video.muted = true;
         video.playsInline = true;
-        video.play()
-          .then(() => {
-            // Keep active playing, pause others (NEVER pause IDLE - it is our safety background backdrop)
-            if (behavior !== key && key !== "IDLE") {
-              video.pause();
-            }
-          })
-          .catch(e => console.warn(`[Autoplay Unlock] ${key} failed:`, e));
+        // Call load to initialize the decoder without playing all 5 at once
+        video.load();
       }
     });
 
     unlockedRef.current = true;
   };
 
-  const handleHologramClick = () => {
+  const handleHologramClick = (e: React.MouseEvent) => {
+    // Only trigger if clicking directly on the avatar container area, not buttons/overlay
+    if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("input")) {
+      return;
+    }
     unlockAllVideos();
 
     // Trigger playful gesture on tap
@@ -406,6 +404,17 @@ export default function HologramEngine({
       window.removeEventListener("click", handleGlobalUnlock);
       window.removeEventListener("touchstart", handleGlobalUnlock);
     };
+  }, []);
+
+  // Safety timeout reset for non-looping animations to prevent freeze-ups if onEnded misses trigger
+  useEffect(() => {
+    if (behavior === "WAVING" || behavior === "STRETCHING") {
+      const timer = setTimeout(() => {
+        console.warn(`[HologramEngine] Safety timeout reset triggered for state: ${behavior}`);
+        setBehavior("IDLE");
+      }, 5500); // 5.5 seconds safety fallback
+      return () => clearTimeout(timer);
+    }
   }, [behavior]);
 
   // 8. High-Performance Multi-Element Crossfade Transition Layer

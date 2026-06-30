@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    // Connected to the live Haya Voice Cloud Run URL
     private val PWA_URL = "https://haya-version-0-47625155867.asia-southeast1.run.app"
     
     private val RUNTIME_PERMISSIONS_REQUEST_CODE = 200
