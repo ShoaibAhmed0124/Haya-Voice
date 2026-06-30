@@ -109,7 +109,7 @@ export default function App() {
   } | null>(null);
 
   const [theme, setTheme] = useState<AppTheme>("midnight");
-  const [wakeWordEnabled, setWakeWordEnabled] = useState<boolean>(true);
+  const [wakeWordEnabled, setWakeWordEnabled] = useState<boolean>(false);
   const [isVisionActive, setIsVisionActive] = useState(false);
   const [isBrowserActive, setIsBrowserActive] = useState(false);
   const torchStreamTrackRef = useRef<MediaStreamTrack | null>(null);
@@ -1951,26 +1951,6 @@ export default function App() {
                             </button>
                           ))}
                         </div>
-                      </div>
-
-                      {/* Voice Wake-Word toggle */}
-                      <div className="flex items-center justify-between p-4 bg-slate-900/30 border border-white/5 rounded-2xl">
-                        <div className="space-y-0.5">
-                          <span className="text-xs font-medium text-slate-200 block">Wake-Word Listening</span>
-                          <span className="text-[10px] text-slate-500">Respond to "Hey Haya"</span>
-                        </div>
-                        <button
-                          onClick={() => setWakeWordEnabled(!wakeWordEnabled)}
-                          className={`w-10 h-6 rounded-full p-1 transition-all duration-300 cursor-pointer ${
-                            wakeWordEnabled ? "bg-purple-600" : "bg-slate-800"
-                          }`}
-                        >
-                          <div
-                            className={`w-4 h-4 rounded-full bg-white transition-all duration-300 ${
-                              wakeWordEnabled ? "translate-x-4" : "translate-x-0"
-                            }`}
-                          />
-                        </button>
                       </div>
                     </div>
                   )}
