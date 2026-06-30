@@ -1576,7 +1576,7 @@ export default function App() {
 
         {/* BUILT-IN PERSONA SELECTOR CAPSULE BAR (Inspired by Grok) */}
         <div className="w-full max-w-lg mx-auto relative z-30 px-4 mb-3 flex justify-center">
-          <div className="flex items-center gap-1.5 p-1 bg-slate-950/45 border border-white/5 backdrop-blur-xl rounded-full overflow-x-auto no-scrollbar max-w-full shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          <div className="flex items-center gap-1.5 p-1.5 bg-slate-950/60 border border-white/10 backdrop-blur-2xl rounded-full overflow-x-auto no-scrollbar max-w-full shadow-[0_0_20px_rgba(168,85,247,0.15),inset_0_1px_1px_rgba(255,255,255,0.1)] hover:border-purple-500/20 transition-all duration-300">
             {HAYA_PERSONAS.map((p) => {
               const isSelected = selectedPersona === p.id;
               const textColors: Record<string, string> = {
@@ -1635,12 +1635,12 @@ export default function App() {
                 }}
                 className={`w-10 h-10 rounded-full flex items-center justify-center relative cursor-pointer overflow-hidden transition-all duration-300 ${
                   state === "disconnected" || state === "error"
-                    ? "bg-slate-900 border border-white/5 text-slate-400 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                    ? "bg-slate-900/60 border border-white/10 text-slate-300 shadow-[0_0_15px_rgba(255,255,255,0.05),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:border-white/20"
                     : state === "connecting"
-                    ? "bg-amber-500/10 border border-amber-500/25 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+                    ? "bg-amber-500/20 border border-amber-400/40 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.4),inset_0_1px_1px_rgba(255,255,255,0.2)] hover:border-amber-400/60"
                     : state === "listening"
-                    ? "bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.25)]"
-                    : "bg-rose-500/10 border border-rose-500/25 text-rose-400 shadow-[0_0_20px_rgba(236,72,153,0.25)]"
+                    ? "bg-cyan-500/25 border border-cyan-400/50 text-cyan-300 shadow-[0_0_25px_rgba(6,182,212,0.5),inset_0_1px_1px_rgba(255,255,255,0.25)] hover:border-cyan-400/70"
+                    : "bg-rose-500/25 border border-rose-400/50 text-rose-300 shadow-[0_0_25px_rgba(244,63,94,0.5),inset_0_1px_1px_rgba(255,255,255,0.25)] hover:border-rose-400/70"
                 }`}
                 title={state === "disconnected" || state === "error" ? "Connect Haya Live Voice" : "Disconnect Haya Live"}
               >
