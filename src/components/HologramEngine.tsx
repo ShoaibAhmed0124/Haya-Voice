@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { motion } from "motion/react";
 import { AssistantState } from "../types";
 
 // Explicit Behavioral States
@@ -38,6 +39,17 @@ export default function HologramEngine({
   // 1. Behavior State
   const [behavior, setBehavior] = useState<EngineState>("IDLE");
   const [activeVideoSlot, setActiveVideoSlot] = useState<EngineState>("IDLE");
+
+  // Video resource caching states
+  const [videoUrls, setVideoUrls] = useState<Record<EngineState, string>>({
+    IDLE: "/HAYA_IDLE.mp4",
+    LISTENING: "/HAYA_LISTENING.mp4",
+    TALKING: "/HAYA_TALKING.mp4",
+    WAVING: "/HAYA_WAVING.mp4",
+    STRETCHING: "/HAYA_STRETCHING.mp4",
+  });
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
 
   // Keep track of active behavior in a ref to avoid stale closures in timeouts
   const currentBehaviorRef = useRef<EngineState>("IDLE");
@@ -81,7 +93,93 @@ export default function HologramEngine({
     currentBehaviorRef.current = behavior;
   }, [behavior]);
 
-  // Warm up and pre-load all videos on mount
+  // Dynamic Cache Storage download & caching manager
+  useEffect(() => {
+    let active = true;
+    
+    const loadCachedVideos = async () => {
+      if (typeof window === "undefined" || !("caches" in window)) {
+        console.warn("[Haya Caching] Cache API not supported in this environment.");
+        return;
+      }
+      
+      try {
+        const cache = await caches.open("haya-video-assets-v1");
+        const cachedUrls: Partial<Record<EngineState, string>> = {};
+        let allCached = true;
+        
+        for (const key of BEHAVIOR_KEYS) {
+          const path = VIDEO_PATHS[key];
+          const cachedRes = await cache.match(path);
+          if (!cachedRes) {
+            allCached = false;
+            break;
+          }
+          const blob = await cachedRes.blob();
+          cachedUrls[key] = URL.createObjectURL(blob);
+        }
+        
+        if (allCached && active) {
+          console.log("[Haya Caching] All video files loaded from persistent local cache.");
+          setVideoUrls(cachedUrls as Record<EngineState, string>);
+          return;
+        }
+        
+        // Sequentially download missing resources
+        if (active) {
+          setIsDownloading(true);
+          setDownloadProgress(0);
+        }
+        
+        const tempUrls: Partial<Record<EngineState, string>> = {};
+        let downloadedCount = 0;
+        
+        for (const key of BEHAVIOR_KEYS) {
+          if (!active) return;
+          const path = VIDEO_PATHS[key];
+          
+          let response: Response;
+          try {
+            response = await fetch(path);
+            if (!response.ok) throw new Error(`HTTP status ${response.status}`);
+          } catch (e) {
+            // Retry fetch once
+            await new Promise((r) => setTimeout(r, 1500));
+            response = await fetch(path);
+            if (!response.ok) throw new Error(`Retry failed with status ${response.status}`);
+          }
+          
+          await cache.put(path, response.clone());
+          const blob = await response.blob();
+          
+          if (active) {
+            tempUrls[key] = URL.createObjectURL(blob);
+            downloadedCount++;
+            setDownloadProgress(Math.round((downloadedCount / BEHAVIOR_KEYS.length) * 100));
+          }
+        }
+        
+        if (active) {
+          console.log("[Haya Caching] All video files successfully downloaded and cached.");
+          setVideoUrls(tempUrls as Record<EngineState, string>);
+        }
+      } catch (err) {
+        console.error("[Haya Caching] Failed to cache files locally:", err);
+      } finally {
+        if (active) {
+          setIsDownloading(false);
+        }
+      }
+    };
+    
+    loadCachedVideos();
+    
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Warm up and pre-load all videos whenever cache URLs are resolved/assigned
   useEffect(() => {
     BEHAVIOR_KEYS.forEach((key) => {
       const video = videoRefs[key].current;
@@ -89,7 +187,7 @@ export default function HologramEngine({
         video.load();
       }
     });
-  }, []);
+  }, [videoUrls]);
 
   // 2. High-Performance Audio Analyser Thread (Runs continuously at 60fps)
   useEffect(() => {
@@ -363,6 +461,59 @@ export default function HologramEngine({
     }
   };
 
+  if (isDownloading) {
+    return (
+      <div className="relative w-full h-full overflow-hidden flex flex-col justify-center items-center bg-[#000000] z-10 font-mono text-[11px] tracking-wider text-purple-400 select-none">
+        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.45)_50%)] bg-[size:100%_4px] opacity-[0.06] z-20" />
+        <div className="relative flex flex-col items-center justify-center space-y-6">
+          <div className="relative w-24 h-24 flex items-center justify-center">
+            {/* Outer rotating ring */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+              style={{ 
+                borderTopColor: `rgba(${glowColorRGB}, 0.8)`, 
+                borderRightColor: "transparent", 
+                borderBottomColor: `rgba(${glowColorRGB}, 0.2)`, 
+                borderLeftColor: "transparent" 
+              }}
+              className="absolute inset-0 rounded-full border border-dashed"
+            />
+            {/* Inner pulsing core */}
+            <motion.div
+              animate={{ scale: [0.9, 1.1, 0.9], opacity: [0.3, 0.7, 0.3] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+              style={{ 
+                boxShadow: `0 0 35px 8px rgba(${glowColorRGB}, 0.45)`, 
+                backgroundColor: `rgba(${glowColorRGB}, 0.15)` 
+              }}
+              className="w-12 h-12 rounded-full border"
+            />
+          </div>
+          <div className="flex flex-col items-center text-center space-y-2 px-6">
+            <div className="text-[12px] font-bold text-white tracking-widest flex items-center space-x-1.5 uppercase">
+              <span>Syncing Hologram Engine</span>
+              <span className="w-1 h-1 rounded-full bg-purple-400 animate-ping" />
+            </div>
+            <div className="text-[10px] text-gray-400 uppercase tracking-widest">
+              Downloading assets... {downloadProgress}%
+            </div>
+            <div className="w-48 h-1 bg-white/5 border border-white/10 rounded-full overflow-hidden relative">
+              <div 
+                style={{ 
+                  width: `${downloadProgress}%`,
+                  backgroundColor: `rgb(${glowColorRGB})`,
+                  boxShadow: `0 0 10px 2px rgba(${glowColorRGB}, 0.8)`
+                }} 
+                className="h-full transition-all duration-300 ease-out"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={handleHologramClick}
@@ -395,7 +546,7 @@ export default function HologramEngine({
                 <video
                   key={key}
                   ref={videoRefs[key]}
-                  src={VIDEO_PATHS[key]}
+                  src={videoUrls[key]}
                   muted
                   playsInline
                   preload="auto"
