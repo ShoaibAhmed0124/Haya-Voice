@@ -1,5 +1,5 @@
 // Minimal service worker for PWA installation requirements on Android
-const CACHE_NAME = "haya-cache-v1";
+const CACHE_NAME = "haya-cache-v2";
 const ASSETS = [
   "/",
   "/index.html",
