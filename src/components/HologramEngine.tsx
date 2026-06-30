@@ -271,8 +271,8 @@ export default function HologramEngine({
         video.playsInline = true;
         video.play()
           .then(() => {
-            // Keep active playing, pause others
-            if (behavior !== key) {
+            // Keep active playing, pause others (NEVER pause IDLE - it is our safety background backdrop)
+            if (behavior !== key && key !== "IDLE") {
               video.pause();
             }
           })
@@ -320,7 +320,10 @@ export default function HologramEngine({
     const targetVideo = videoRefs[targetBehavior].current;
 
     if (targetVideo) {
-      targetVideo.currentTime = 0;
+      // Seek to 0 only for one-shot gestures (Waving, Stretching), NOT for continuous loops!
+      if (targetBehavior === "WAVING" || targetBehavior === "STRETCHING") {
+        targetVideo.currentTime = 0;
+      }
       targetVideo.playbackRate = (targetBehavior === "IDLE" && state === "listening") ? 0.85 : 1.0;
       
       targetVideo.play()
@@ -330,14 +333,15 @@ export default function HologramEngine({
 
           // Pause other videos after crossfade has settled to keep animations smooth
           BEHAVIOR_KEYS.forEach((key) => {
-            if (key !== targetBehavior) {
+            // NEVER pause the IDLE video - it is our safety background layer!
+            if (key !== targetBehavior && key !== "IDLE") {
               const otherVideo = videoRefs[key].current;
               if (otherVideo && !otherVideo.paused) {
                 setTimeout(() => {
                   if (currentBehaviorRef.current !== key) {
                     otherVideo.pause();
                   }
-                }, 350);
+                }, 500); // 500ms delay to let the opacity crossfade complete
               }
             }
           });
@@ -386,6 +390,7 @@ export default function HologramEngine({
           <div className="relative w-full h-full flex items-center justify-center mix-blend-screen select-none pointer-events-none">
             {BEHAVIOR_KEYS.map((key) => {
               const isLooping = key === "IDLE" || key === "LISTENING" || key === "TALKING";
+              const isActive = activeVideoSlot === key;
               return (
                 <video
                   key={key}
@@ -397,12 +402,13 @@ export default function HologramEngine({
                   loop={isLooping}
                   onEnded={() => handleSlotEnded(key)}
                   style={{
-                    opacity: activeVideoSlot === key ? 1 : 0,
-                    pointerEvents: activeVideoSlot === key ? "auto" : "none",
+                    opacity: key === "IDLE" ? 1 : (isActive ? 1 : 0),
+                    zIndex: key === "IDLE" ? 5 : (isActive ? 10 : 6),
+                    pointerEvents: isActive ? "auto" : "none",
                     willChange: "opacity",
                   }}
                   onError={(e) => console.error(`[Haya ${key}] Critical stream error:`, e)}
-                  className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300 transform scale-100 z-10"
+                  className="absolute inset-0 w-full h-full object-contain transition-opacity duration-500 transform scale-100"
                 />
               );
             })}
