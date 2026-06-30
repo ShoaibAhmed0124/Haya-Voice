@@ -12,6 +12,8 @@ const VIDEO_PATHS: Record<EngineState, string> = {
   STRETCHING: "/HAYA_STRETCHING.mp4",
 };
 
+const BEHAVIOR_KEYS: EngineState[] = ["IDLE", "LISTENING", "TALKING", "WAVING", "STRETCHING"];
+
 interface HologramEngineProps {
   state: AssistantState;
   playbackAnalyser: AnalyserNode | null;
@@ -35,29 +37,30 @@ export default function HologramEngine({
 }: HologramEngineProps) {
   // 1. Behavior State
   const [behavior, setBehavior] = useState<EngineState>("IDLE");
+  const [activeVideoSlot, setActiveVideoSlot] = useState<EngineState>("IDLE");
 
-  // Dual-Video element states for the crossfading deck
-  const [activeVideoSlot, setActiveVideoSlot] = useState<"slotA" | "slotB">("slotA");
-  const [slotAOpacity, setSlotAOpacity] = useState<number>(1);
-  const [slotBOpacity, setSlotBOpacity] = useState<number>(0);
+  // Keep track of active behavior in a ref to avoid stale closures in timeouts
+  const currentBehaviorRef = useRef<EngineState>("IDLE");
 
-  // Synchronization refs for smooth hardware crossfading
-  const currentSlotRef = useRef<"slotA" | "slotB">("slotA");
+  // Track if videos have been unlocked by user interaction
+  const unlockedRef = useRef<boolean>(false);
+
+  // References for all 5 video elements
+  const videoRefs = {
+    IDLE: useRef<HTMLVideoElement | null>(null),
+    LISTENING: useRef<HTMLVideoElement | null>(null),
+    TALKING: useRef<HTMLVideoElement | null>(null),
+    WAVING: useRef<HTMLVideoElement | null>(null),
+    STRETCHING: useRef<HTMLVideoElement | null>(null),
+  };
+
   const lastBehaviorRef = useRef<EngineState | null>(null);
 
   // Audio analysis states (running continuously)
   const [micActive, setMicActive] = useState<boolean>(false);
   const [playbackActive, setPlaybackActive] = useState<boolean>(false);
 
-  // Dual-Video element references (Only 2 physical elements to satisfy mobile hardware decoder limits!)
-  const videoRefA = useRef<HTMLVideoElement | null>(null);
-  const videoRefB = useRef<HTMLVideoElement | null>(null);
-
-  // Gesture unlock tracker for strict mobile autoplay sandbox
-  const unlockedRef = useRef<boolean>(false);
-
   // UI rendering refs
-  const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const projectionContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Audio active trackers
@@ -68,28 +71,25 @@ export default function HologramEngine({
 
   // Behavior tracking refs
   const lastActivityTimeRef = useRef<number>(Date.now());
-  const behaviorStartTimeRef = useRef<number>(performance.now());
   const volumeLevelRef = useRef<number>(0);
   const lastStateRef = useRef<AssistantState>(state);
   const lastAppliedOpacityRef = useRef<number>(0);
   const lastAppliedScaleRef = useRef<number>(0);
 
-  // Warm up Slot A on mount with initial IDLE video resource
+  // Keep currentBehaviorRef synced
   useEffect(() => {
-    if (videoRefA.current) {
-      videoRefA.current.src = VIDEO_PATHS.IDLE;
-      videoRefA.current.load();
-    }
-  }, []);
+    currentBehaviorRef.current = behavior;
+  }, [behavior]);
 
-  // Logs state transitions beautifully in the console
-  const logBehaviorTransition = (newBehavior: EngineState, durationMs: number) => {
-    console.group(`%c[HAYA BEHAVIOR ACTIVE] → ${newBehavior}`, "color: #c084fc; font-weight: bold;");
-    console.log(`%cApp State context:   %c${state}`, "color: #818cf8; font-weight: bold;", "color: #ffffff;");
-    console.log(`%cTime in transition:  %c${durationMs.toFixed(1)}ms`, "color: #e2e8f0; font-weight: bold;", "color: #ffffff;");
-    console.log(`%cActive Deck Slot:    %c${currentSlotRef.current === "slotA" ? "Slot A" : "Slot B"}`, "color: #2dd4bf; font-weight: bold;", "color: #ffffff;");
-    console.groupEnd();
-  };
+  // Warm up and pre-load all videos on mount
+  useEffect(() => {
+    BEHAVIOR_KEYS.forEach((key) => {
+      const video = videoRefs[key].current;
+      if (video) {
+        video.load();
+      }
+    });
+  }, []);
 
   // 2. High-Performance Audio Analyser Thread (Runs continuously at 60fps)
   useEffect(() => {
@@ -148,7 +148,7 @@ export default function HologramEngine({
 
       volumeLevelRef.current = currentVolume;
 
-      // Real-time volumetric scales of holographic containment capsule (Throttled & smoothed for performance)
+      // Real-time volumetric scales of holographic containment capsule
       if (projectionContainerRef.current) {
         const pulse = (Math.sin(now / 600) + 1) / 2;
         const baseIntensity = 0.94 + pulse * 0.05;
@@ -160,7 +160,6 @@ export default function HologramEngine({
         const opacityDiff = Math.abs(targetOpacity - lastAppliedOpacityRef.current);
         const scaleDiff = Math.abs(targetScale - lastAppliedScaleRef.current);
 
-        // Only update styles if the change exceeds visual threshold to prevent excessive layout/style recalculations on mobile
         if (opacityDiff > 0.005 || scaleDiff > 0.001) {
           projectionContainerRef.current.style.opacity = targetOpacity.toFixed(3);
           projectionContainerRef.current.style.transform = `scale(${targetScale.toFixed(3)})`;
@@ -206,26 +205,24 @@ export default function HologramEngine({
     }
   }, [isSpeechPlaybackActive, isSpeechInputActive]);
 
-  // 4. Autonomous Conversation-driven Behavior Transitions (Rule-based Decision Layer)
+  // 4. Autonomous Conversation-driven Behavior Transitions
   useEffect(() => {
     if (isSpeechPlaybackActive) {
       if (behavior !== "TALKING") {
         setBehavior("TALKING");
       }
     } else if (isSpeechInputActive) {
-      // Do not interrupt ongoing gestures (waving/stretching) prematurely
       if (behavior !== "LISTENING" && behavior !== "WAVING" && behavior !== "STRETCHING") {
         setBehavior("LISTENING");
       }
     } else {
-      // Return to attentive IDLE posture if conversational streams stop
       if (behavior === "TALKING" || behavior === "LISTENING") {
         setBehavior("IDLE");
       }
     }
   }, [isSpeechPlaybackActive, isSpeechInputActive, behavior]);
 
-  // 5. Inactivity "Stretching" posture clock (rare, immersive behavior)
+  // 5. Inactivity "Stretching" posture clock (every 40s of complete silence)
   useEffect(() => {
     const checkInactivity = () => {
       if (behavior !== "IDLE") return;
@@ -233,7 +230,6 @@ export default function HologramEngine({
       const now = Date.now();
       const idleDuration = now - lastActivityTimeRef.current;
 
-      // Stretch if completely inactive and silent for 40 seconds
       if (idleDuration >= 40000 && !isSpeechPlaybackActive && !isSpeechInputActive) {
         console.log("[Haya Behavior Engine] Immersive inactivity stretch triggered.");
         setBehavior("STRETCHING");
@@ -266,28 +262,23 @@ export default function HologramEngine({
   // 7. Universal gesture unlock to satisfy mobile autoplay policies
   const unlockAllVideos = () => {
     if (unlockedRef.current) return;
-    console.log("[Haya Behavior Engine] Initializing and warming up dual-video decoders for mobile...");
+    console.log("[Haya Behavior Engine] Initializing and unlocking all 5 video decoders for mobile...");
 
-    const vA = videoRefA.current;
-    const vB = videoRefB.current;
-
-    if (vA) {
-      vA.muted = true;
-      vA.playsInline = true;
-      vA.play().then(() => {
-        // Keep active playing
-        if (activeVideoSlot !== "slotA") vA.pause();
-      }).catch(e => console.warn("[Autoplay Unlock] Slot A failed:", e));
-    }
-
-    if (vB) {
-      vB.muted = true;
-      vB.playsInline = true;
-      vB.play().then(() => {
-        // Keep active playing
-        if (activeVideoSlot !== "slotB") vB.pause();
-      }).catch(e => console.warn("[Autoplay Unlock] Slot B failed:", e));
-    }
+    BEHAVIOR_KEYS.forEach((key) => {
+      const video = videoRefs[key].current;
+      if (video) {
+        video.muted = true;
+        video.playsInline = true;
+        video.play()
+          .then(() => {
+            // Keep active playing, pause others
+            if (behavior !== key) {
+              video.pause();
+            }
+          })
+          .catch(e => console.warn(`[Autoplay Unlock] ${key} failed:`, e));
+      }
+    });
 
     unlockedRef.current = true;
   };
@@ -319,69 +310,51 @@ export default function HologramEngine({
     };
   }, [behavior]);
 
-  // 8. Dual-Video Crossfade Transition Layer (Preloads, cross-fades, and recycles decoders)
+  // 8. High-Performance Multi-Element Crossfade Transition Layer
   useEffect(() => {
-    const targetPath = VIDEO_PATHS[behavior];
-    if (lastBehaviorRef.current === behavior) return;
-    lastBehaviorRef.current = behavior;
+    const targetBehavior = behavior;
+    if (lastBehaviorRef.current === targetBehavior) return;
 
-    const isLooping = behavior === "IDLE" || behavior === "LISTENING" || behavior === "TALKING";
-    behaviorStartTimeRef.current = performance.now();
+    console.log(`[HologramEngine] Transitioning from ${lastBehaviorRef.current} to ${targetBehavior}`);
 
-    const videoA = videoRefA.current;
-    const videoB = videoRefB.current;
-
-    const currentSlot = currentSlotRef.current;
-    const targetSlot = currentSlot === "slotA" ? "slotB" : "slotA";
-    const activeVideo = currentSlot === "slotA" ? videoA : videoB;
-    const targetVideo = currentSlot === "slotA" ? videoB : videoA;
+    const targetVideo = videoRefs[targetBehavior].current;
 
     if (targetVideo) {
-      targetVideo.src = targetPath;
-      targetVideo.muted = true;
-      targetVideo.playsInline = true;
-      targetVideo.loop = isLooping;
       targetVideo.currentTime = 0;
-      targetVideo.playbackRate = (behavior === "IDLE" && state === "listening") ? 0.85 : 1.0;
-
-      targetVideo.load();
+      targetVideo.playbackRate = (targetBehavior === "IDLE" && state === "listening") ? 0.85 : 1.0;
+      
       targetVideo.play()
         .then(() => {
-          if (targetSlot === "slotA") {
-            setSlotAOpacity(1);
-            setSlotBOpacity(0);
-          } else {
-            setSlotAOpacity(0);
-            setSlotBOpacity(1);
-          }
-          setActiveVideoSlot(targetSlot);
-          currentSlotRef.current = targetSlot;
-          if (activeVideo) activeVideo.pause();
+          // Crossfade opacity
+          setActiveVideoSlot(targetBehavior);
 
-          const dur = performance.now() - behaviorStartTimeRef.current;
-          logBehaviorTransition(behavior, dur);
+          // Pause other videos after crossfade has settled to keep animations smooth
+          BEHAVIOR_KEYS.forEach((key) => {
+            if (key !== targetBehavior) {
+              const otherVideo = videoRefs[key].current;
+              if (otherVideo && !otherVideo.paused) {
+                setTimeout(() => {
+                  if (currentBehaviorRef.current !== key) {
+                    otherVideo.pause();
+                  }
+                }, 350);
+              }
+            }
+          });
         })
         .catch(e => {
-          console.warn(`[Dual-Deck] Play request failed/aborted for ${behavior}:`, e);
-          // Fallback to avoid visual lock
-          if (targetSlot === "slotA") {
-            setSlotAOpacity(1);
-            setSlotBOpacity(0);
-          } else {
-            setSlotAOpacity(0);
-            setSlotBOpacity(1);
-          }
-          setActiveVideoSlot(targetSlot);
-          currentSlotRef.current = targetSlot;
-          if (activeVideo) activeVideo.pause();
+          console.warn(`[HologramEngine] Play request failed for ${targetBehavior}:`, e);
+          setActiveVideoSlot(targetBehavior);
         });
     }
+
+    lastBehaviorRef.current = targetBehavior;
   }, [behavior, state]);
 
   // Handles end events for gestures
-  const handleSlotEnded = (slot: "A" | "B") => {
-    console.log(`[Dual-Deck] Video ended in Slot ${slot} for behavior: ${behavior}`);
-    if (behavior === "WAVING" || behavior === "STRETCHING") {
+  const handleSlotEnded = (key: EngineState) => {
+    console.log(`[HologramEngine] Video ended for behavior: ${key}`);
+    if (key === "WAVING" || key === "STRETCHING") {
       setBehavior("IDLE");
     }
   };
@@ -411,33 +384,31 @@ export default function HologramEngine({
           }`}
         >
           <div className="relative w-full h-full flex items-center justify-center mix-blend-screen select-none pointer-events-none">
-            {/* Slot A: High-performance Hardware Video Decoder */}
-            <video
-              ref={videoRefA}
-              muted
-              playsInline
-              preload="auto"
-              style={{ opacity: slotAOpacity, willChange: "opacity" }}
-              onEnded={() => handleSlotEnded("A")}
-              onError={(e) => console.error("[Haya Slot A] Critical stream error:", e)}
-              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300 transform scale-100 z-10"
-            />
-
-            {/* Slot B: High-performance Hardware Video Decoder */}
-            <video
-              ref={videoRefB}
-              muted
-              playsInline
-              preload="auto"
-              style={{ opacity: slotBOpacity, willChange: "opacity" }}
-              onEnded={() => handleSlotEnded("B")}
-              onError={(e) => console.error("[Haya Slot B] Critical stream error:", e)}
-              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300 transform scale-100 z-10"
-            />
+            {BEHAVIOR_KEYS.map((key) => {
+              const isLooping = key === "IDLE" || key === "LISTENING" || key === "TALKING";
+              return (
+                <video
+                  key={key}
+                  ref={videoRefs[key]}
+                  src={VIDEO_PATHS[key]}
+                  muted
+                  playsInline
+                  preload="auto"
+                  loop={isLooping}
+                  onEnded={() => handleSlotEnded(key)}
+                  style={{
+                    opacity: activeVideoSlot === key ? 1 : 0,
+                    pointerEvents: activeVideoSlot === key ? "auto" : "none",
+                    willChange: "opacity",
+                  }}
+                  onError={(e) => console.error(`[Haya ${key}] Critical stream error:`, e)}
+                  className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300 transform scale-100 z-10"
+                />
+              );
+            })}
           </div>
         </div>
       </div>
     </div>
   );
 }
-

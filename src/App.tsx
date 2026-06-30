@@ -47,7 +47,7 @@ import { BrowserEngine } from "./services/browserEngine";
 import StreamingTextPanel from "./components/StreamingTextPanel";
 import SecretDashboard from "./components/SecretDashboard";
 import { AndroidBridgeManager, DiagnosticsState, PermissionStatus } from "./services/androidBridge";
-import { ChatWorkspace } from "./components/ChatWorkspace";
+
 
 // Helpers for PCM conversion
 function float32ToInt16(buffer: Float32Array): Int16Array {
@@ -137,7 +137,7 @@ export default function App() {
 
   // Custom configuration states for Haya rendering engine and unified settings menu
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const isChatOpen = false;
   const [settingsTab, setSettingsTab] = useState<"voice" | "memory" | "browser" | "vision" | "privacy" | "android" | "history">("voice");
   const [isManualGlitching, setIsManualGlitching] = useState(false);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -1902,20 +1902,7 @@ export default function App() {
 
              {/* Modern, unified right action toggles for Browser, Vision, and Chat */}
             <div className="relative z-10 flex items-center gap-1 border-l border-white/5 pl-2">
-              <button
-                onClick={() => {
-                  triggerHaptic(30);
-                  setIsChatOpen(true);
-                }}
-                className={`p-2 rounded-full border transition-all duration-300 cursor-pointer ${
-                  isChatOpen
-                    ? "bg-purple-500/25 border-purple-500/60 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.5)] scale-110"
-                    : "bg-purple-500/15 border-purple-500/30 text-purple-400 hover:text-purple-200 hover:bg-purple-500/25 hover:border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.2)] hover:scale-105"
-                }`}
-                title="Launch Chat & Image Studio Workspace"
-              >
-                <MessageSquare className="w-4 h-4 animate-pulse" />
-              </button>
+
               <button
                 disabled={state === "disconnected" || state === "error"}
                 onClick={() => {
@@ -2772,85 +2759,6 @@ export default function App() {
         </div>
       )}
 
-      {/* CHAT WORKSPACE PIPELINE */}
-      <AnimatePresence>
-        {isChatOpen && (
-          <ChatWorkspace
-            isOpen={isChatOpen}
-            onClose={() => setIsChatOpen(false)}
-            activePersonaId={selectedPersona}
-            onTriggerHaptic={triggerHaptic}
-          />
-        )}
-      </AnimatePresence>
-
-      </div>
-
-      {/* PERSISTENT HIGH-FIDELITY NAVIGATION DOCK - OUTSIDE OF INNER LAYOUT TRANSITIONS TO PREVENT ANY CLIPPING/OVERLAP */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-sm pointer-events-auto">
-        <div 
-          className={`flex items-center justify-around bg-slate-950/90 border backdrop-blur-2xl rounded-full px-6 py-2.5 transition-all duration-300 ${
-            !isChatOpen && !isSettingsOpen
-              ? "border-cyan-500/30 shadow-[0_8px_32px_rgba(6,182,212,0.25)]"
-              : isChatOpen
-              ? "border-purple-500/30 shadow-[0_8px_32px_rgba(168,85,247,0.25)]"
-              : "border-amber-500/30 shadow-[0_8px_32px_rgba(245,158,11,0.25)]"
-          }`}
-        >
-          {/* HOME TAB */}
-          <button
-            onClick={() => {
-              triggerHaptic(20);
-              setIsChatOpen(false);
-              setIsSettingsOpen(false);
-            }}
-            className={`flex flex-col items-center gap-1 transition-all duration-200 cursor-pointer ${
-              !isChatOpen && !isSettingsOpen
-                ? "text-cyan-400 scale-110 font-bold"
-                : "text-slate-500 hover:text-slate-300 hover:scale-105"
-            }`}
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-[10px] font-mono tracking-widest font-bold uppercase">Home</span>
-          </button>
-
-          {/* CHAT TAB */}
-          <button
-            onClick={() => {
-              triggerHaptic(30);
-              setIsChatOpen(true);
-              setIsSettingsOpen(false);
-            }}
-            className={`flex flex-col items-center gap-1 transition-all duration-200 cursor-pointer relative ${
-              isChatOpen
-                ? "text-purple-400 scale-110 font-bold"
-                : "text-slate-500 hover:text-slate-300 hover:scale-105"
-            }`}
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span className="text-[10px] font-mono tracking-widest font-bold uppercase">Chat</span>
-            {isChatOpen && (
-              <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 bg-purple-500 rounded-full animate-ping" />
-            )}
-          </button>
-
-          {/* SETTINGS TAB */}
-          <button
-            onClick={() => {
-              triggerHaptic(25);
-              setIsSettingsOpen(true);
-              setIsChatOpen(false);
-            }}
-            className={`flex flex-col items-center gap-1 transition-all duration-200 cursor-pointer ${
-              isSettingsOpen
-                ? "text-amber-400 scale-110 font-bold"
-                : "text-slate-500 hover:text-slate-300 hover:scale-105"
-            }`}
-          >
-            <Sliders className="w-5 h-5" />
-            <span className="text-[10px] font-mono tracking-widest font-bold uppercase">Settings</span>
-          </button>
-        </div>
       </div>
 
     </div>

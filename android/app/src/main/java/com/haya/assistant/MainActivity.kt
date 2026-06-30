@@ -15,6 +15,7 @@ import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebResourceRequest
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -131,7 +132,18 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                return false // Handle navigation inside WebView
+                if (url != null) {
+                    return handleUrlOrIntent(url)
+                }
+                return false
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url?.toString()
+                if (url != null) {
+                    return handleUrlOrIntent(url)
+                }
+                return false
             }
         }
 
@@ -152,6 +164,41 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Haya Signal: $payload", Toast.LENGTH_SHORT).show()
             }
         }, "Android")
+    }
+
+    private fun handleUrlOrIntent(url: String): Boolean {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return false // Standard browser navigation
+        }
+
+        try {
+            val intent = if (url.startsWith("intent:")) {
+                Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+            } else {
+                Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            }
+            
+            intent.addCategory(Intent.CATEGORY_BROWSABLE)
+            intent.setComponent(null)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.XV) {
+                intent.selector = null
+            }
+
+            if (packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null) {
+                startActivity(intent)
+                return true
+            } else {
+                // Try fallback URL from intent if present
+                val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                if (fallbackUrl != null) {
+                    webView.loadUrl(fallbackUrl)
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
     }
 
     private fun loadPwa() {
