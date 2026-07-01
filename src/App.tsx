@@ -96,7 +96,7 @@ const PERSONA_GLOW_RGB_MAP: Record<string, string> = {
 export default function App() {
   const [state, setState] = useState<AssistantState>("disconnected");
   const [forcedBehavior, setForcedBehavior] = useState<{ type: EngineState; timestamp: number } | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState<string>("Zephyr");
+  const [selectedVoice, setSelectedVoice] = useState<string>("Aoede");
   const [selectedPersona, setSelectedPersona] = useState<string>("assistant");
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<string>("");
