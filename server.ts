@@ -355,7 +355,7 @@ async function startServer() {
 
         // Client wants to start/initialize the Gemini session
         if (parsed.type === "start") {
-          const selectedVoice = parsed.voice || "Aoede";
+          const selectedVoice = parsed.voice || "Zephyr";
           const selectedPersonaId = parsed.personaId || "assistant";
           console.log(`Starting Gemini Live session with voice: ${selectedVoice}, persona: ${selectedPersonaId}`);
 
