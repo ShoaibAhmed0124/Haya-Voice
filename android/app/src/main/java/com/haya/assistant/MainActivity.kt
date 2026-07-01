@@ -18,6 +18,7 @@ import android.webkit.WebView
 import android.webkit.WebResourceRequest
 import android.webkit.WebViewClient
 import android.widget.Toast
+import android.media.AudioManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -176,6 +177,77 @@ class MainActivity : AppCompatActivity() {
                     val serviceIntent = Intent(this@MainActivity, CaptureService::class.java)
                     stopService(serviceIntent)
                     Toast.makeText(this@MainActivity, "Screen capture service stopped", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            @android.webkit.JavascriptInterface
+            fun setVolume(levelPercent: Int) {
+                runOnUiThread {
+                    try {
+                        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                        val targetVolume = (maxVolume * levelPercent / 100).coerceIn(0, maxVolume)
+                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, AudioManager.FLAG_SHOW_UI)
+                        Toast.makeText(this@MainActivity, "Volume: $levelPercent%", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            @android.webkit.JavascriptInterface
+            fun setBrightness(levelPercent: Int) {
+                runOnUiThread {
+                    try {
+                        val layoutParams = window.attributes
+                        layoutParams.screenBrightness = (levelPercent / 100f).coerceIn(0.01f, 1f)
+                        window.attributes = layoutParams
+                        Toast.makeText(this@MainActivity, "Brightness: $levelPercent%", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            @android.webkit.JavascriptInterface
+            fun launchApp(appName: String): Boolean {
+                val context = this@MainActivity
+                val packageMap = mapOf(
+                    "youtube" to "com.google.android.youtube",
+                    "whatsapp" to "com.whatsapp",
+                    "instagram" to "com.instagram.android",
+                    "telegram" to "org.telegram.messenger",
+                    "gmail" to "com.google.android.gm",
+                    "maps" to "com.google.android.apps.maps",
+                    "google_maps" to "com.google.android.apps.maps",
+                    "drive" to "com.google.android.apps.docs",
+                    "google_drive" to "com.google.android.apps.docs",
+                    "photos" to "com.google.android.apps.photos",
+                    "google_photos" to "com.google.android.apps.photos",
+                    "chrome" to "com.android.chrome",
+                    "play_store" to "com.android.vending",
+                    "settings" to "com.android.settings",
+                    "calculator" to "com.google.android.calculator",
+                    "camera" to "com.android.camera",
+                    "notes" to "com.google.android.keep",
+                    "spotify" to "com.spotify.music"
+                )
+                
+                val targetPackage = packageMap[appName.toLowerCase()] ?: appName
+                
+                return try {
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage(targetPackage)
+                    if (launchIntent != null) {
+                        context.startActivity(launchIntent)
+                        true
+                    } else {
+                        // Fallback: try details page on Google Play store
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$targetPackage"))
+                        context.startActivity(intent)
+                        true
+                    }
+                } catch (e: Exception) {
+                    false
                 }
             }
         }, "Android")

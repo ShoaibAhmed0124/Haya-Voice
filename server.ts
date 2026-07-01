@@ -361,7 +361,11 @@ async function startServer() {
 
           try {
             const ai = getGoogleGenAI();
-            const activeSystemInstruction = getPersonaPrompt(selectedPersonaId);
+            let activeSystemInstruction = getPersonaPrompt(selectedPersonaId);
+            if (parsed.memories && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
+              const memoriesText = parsed.memories.map((m: string) => `- ${m}`).join("\n");
+              activeSystemInstruction += `\n\n### COMMANDER PREFERENCES & PERMANENT MEMORIES:\n${memoriesText}\n\nYou must remember and respect all these facts, rules, and preferences in your conversations.`;
+            }
             session = await ai.live.connect({
               model: "gemini-3.1-flash-live-preview",
               config: {

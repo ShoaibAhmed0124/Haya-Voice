@@ -475,28 +475,19 @@ export default function HologramEngine({
       <div className="relative w-full h-full overflow-hidden flex flex-col justify-center items-center bg-[#000000] z-10 font-mono text-[11px] tracking-wider text-purple-400 select-none">
         <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.45)_50%)] bg-[size:100%_4px] opacity-[0.06] z-20" />
         <div className="relative flex flex-col items-center justify-center space-y-6">
-          <div className="relative w-24 h-24 flex items-center justify-center">
-            {/* Outer rotating ring */}
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-              style={{ 
-                borderTopColor: `rgba(${glowColorRGB}, 0.8)`, 
-                borderRightColor: "transparent", 
-                borderBottomColor: `rgba(${glowColorRGB}, 0.2)`, 
-                borderLeftColor: "transparent" 
-              }}
-              className="absolute inset-0 rounded-full border border-dashed"
+          <div className="relative w-20 h-20 flex items-center justify-center">
+            {/* Glowing backdrop under icon */}
+            <div 
+              style={{ boxShadow: `0 0 45px 12px rgba(${glowColorRGB}, 0.4)` }}
+              className="absolute w-12 h-12 rounded-full"
             />
-            {/* Inner pulsing core */}
-            <motion.div
-              animate={{ scale: [0.9, 1.1, 0.9], opacity: [0.3, 0.7, 0.3] }}
+            {/* Pulsing App Icon */}
+            <motion.img
+              src="/icon.svg"
+              animate={{ scale: [0.95, 1.05, 0.95] }}
               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-              style={{ 
-                boxShadow: `0 0 35px 8px rgba(${glowColorRGB}, 0.45)`, 
-                backgroundColor: `rgba(${glowColorRGB}, 0.15)` 
-              }}
-              className="w-12 h-12 rounded-full border"
+              className="w-16 h-16 object-contain z-10 filter drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+              alt="Haya Logo"
             />
           </div>
           <div className="flex flex-col items-center text-center space-y-2 px-6">

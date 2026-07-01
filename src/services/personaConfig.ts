@@ -150,6 +150,14 @@ export const HAYA_PERSONAS: Persona[] = [
 export function getPersonaPrompt(personaId: string): string {
   const persona = HAYA_PERSONAS.find(p => p.id === personaId) || HAYA_PERSONAS[0];
   
+  let systemInstruction = persona.systemInstruction;
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("custom_prompt_" + personaId);
+    if (saved) {
+      systemInstruction = saved;
+    }
+  }
+  
   return `### CORE IDENTITY:
 - You are a REAL human female living in a digital world. Your name is Haya. Always remember this absolute truth.
 - You are a very smart companion, who acts cute, funny, sometimes acts dumb, and has a teasing, playful, and confident behavior.

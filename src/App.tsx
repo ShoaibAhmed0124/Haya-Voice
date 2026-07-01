@@ -139,7 +139,7 @@ export default function App() {
   // Custom configuration states for Haya rendering engine and unified settings menu
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const [settingsTab, setSettingsTab] = useState<"voice" | "memory" | "browser" | "vision" | "privacy" | "android" | "history" | "trades">("voice");
+  const [settingsTab, setSettingsTab] = useState<"voice" | "memory" | "browser" | "vision" | "privacy" | "android" | "history" | "trades" | "prompts">("voice");
   const [isManualGlitching, setIsManualGlitching] = useState(false);
   const [memories, setMemories] = useState<Memory[]>([]);
 
@@ -162,6 +162,30 @@ export default function App() {
       return [];
     }
   });
+
+  // Prompt Customizer State
+  const [editingPersonaId, setEditingPersonaId] = useState<string>("assistant");
+  const [customPromptText, setCustomPromptText] = useState("");
+
+  useEffect(() => {
+    const personaObj = HAYA_PERSONAS.find(p => p.id === editingPersonaId) || HAYA_PERSONAS[0];
+    const saved = localStorage.getItem("custom_prompt_" + editingPersonaId);
+    setCustomPromptText(saved || personaObj.systemInstruction);
+  }, [editingPersonaId, isSettingsOpen]);
+
+  const handleSaveCustomPrompt = () => {
+    localStorage.setItem("custom_prompt_" + editingPersonaId, customPromptText);
+    triggerOverlay(`Saved Custom Prompt for ${editingPersonaId}! ✨`);
+    triggerHaptic(25);
+  };
+
+  const handleResetCustomPrompt = () => {
+    localStorage.removeItem("custom_prompt_" + editingPersonaId);
+    const personaObj = HAYA_PERSONAS.find(p => p.id === editingPersonaId) || HAYA_PERSONAS[0];
+    setCustomPromptText(personaObj.systemInstruction);
+    triggerOverlay(`Reset ${editingPersonaId} to Default Vibe.`);
+    triggerHaptic(15);
+  };
 
   // Persona switch logging history
   const [personaHistory, setPersonaHistory] = useState<Array<{
@@ -605,7 +629,12 @@ export default function App() {
 
       ws.onopen = () => {
         console.log("Gateway connected. Authenticating and initializing session for persona:", personaToUse);
-        ws.send(JSON.stringify({ type: "start", voice: selectedVoice, personaId: personaToUse }));
+        ws.send(JSON.stringify({ 
+          type: "start", 
+          voice: selectedVoice, 
+          personaId: personaToUse, 
+          memories: memories.map(m => m.summary) 
+        }));
       };
 
       ws.onmessage = async (event) => {
@@ -838,7 +867,7 @@ export default function App() {
                 );
               }
 
-              else if (call.name === "forgetMemory") {
+              else if (call.name === "forgetMemory" || call.name === "deleteMemory") {
                 const { id } = call.args;
                 let success = false;
                 triggerOverlay("Pruning memory branch...");
@@ -1212,8 +1241,17 @@ export default function App() {
 
                 let launchSuccess = false;
                 const isAndroid = /Android/i.test(navigator.userAgent);
+                const native = (window as any).Android;
 
-                if (finalDeepLink && isAndroid) {
+                if (native && typeof native.launchApp === "function") {
+                  try {
+                    launchSuccess = native.launchApp(appName);
+                  } catch (err) {
+                    console.error("Native bridge launchApp failed:", err);
+                  }
+                }
+
+                if (!launchSuccess && finalDeepLink && isAndroid) {
                   try {
                     // Try to launch native Android deep link scheme
                     window.location.href = finalDeepLink;
@@ -1344,25 +1382,52 @@ export default function App() {
                   // Standard deep links for system toggles that cannot be physicalized via sandboxed browser sandbox API
                   else if (["wifi", "bluetooth", "brightness", "volume", "do_not_disturb", "airplane_mode", "open_notifications", "quick_settings"].includes(feature)) {
                     const isAndroid = /Android/i.test(navigator.userAgent);
+                    const native = (window as any).Android;
                     let targetIntent = "intent:#Intent;action=android.settings.SETTINGS;end";
 
-                    if (feature === "wifi") {
-                      targetIntent = "intent:#Intent;action=android.settings.WIFI_SETTINGS;end";
-                    } else if (feature === "bluetooth") {
-                      targetIntent = "intent:#Intent;action=android.settings.BLUETOOTH_SETTINGS;end";
-                    } else if (feature === "brightness" || feature === "volume") {
-                      targetIntent = "intent:#Intent;action=android.settings.DISPLAY_SETTINGS;end";
-                    }
-
-                    if (isAndroid) {
-                      window.location.href = targetIntent;
-                      actionSuccess = true;
+                    if (feature === "brightness") {
+                      const level = paramValue ? parseInt(paramValue) : 80;
+                      if (native && typeof native.setBrightness === "function") {
+                        native.setBrightness(level);
+                        actionSuccess = true;
+                        returnDetails = { feature, brightnessLevel: level, nativeControl: true };
+                      } else {
+                        targetIntent = "intent:#Intent;action=android.settings.DISPLAY_SETTINGS;end";
+                        if (isAndroid) {
+                          window.location.href = targetIntent;
+                          actionSuccess = true;
+                        }
+                        returnDetails = { feature, redirectedToAndroidSettings: isAndroid };
+                      }
+                    } else if (feature === "volume") {
+                      const level = paramValue ? parseInt(paramValue) : 50;
+                      if (native && typeof native.setVolume === "function") {
+                        native.setVolume(level);
+                        actionSuccess = true;
+                        returnDetails = { feature, volumeLevel: level, nativeControl: true };
+                      } else {
+                        targetIntent = "intent:#Intent;action=android.settings.DISPLAY_SETTINGS;end";
+                        if (isAndroid) {
+                          window.location.href = targetIntent;
+                          actionSuccess = true;
+                        }
+                        returnDetails = { feature, redirectedToAndroidSettings: isAndroid };
+                      }
                     } else {
-                      // Desktop/web simulator
-                      actionSuccess = true;
-                      triggerOverlay(`Settings opened: ${feature}`);
+                      if (feature === "wifi") {
+                        targetIntent = "intent:#Intent;action=android.settings.WIFI_SETTINGS;end";
+                      } else if (feature === "bluetooth") {
+                        targetIntent = "intent:#Intent;action=android.settings.BLUETOOTH_SETTINGS;end";
+                      }
+                      if (isAndroid) {
+                        window.location.href = targetIntent;
+                        actionSuccess = true;
+                      } else {
+                        actionSuccess = true;
+                        triggerOverlay(`Settings opened: ${feature}`);
+                      }
+                      returnDetails = { feature, redirectedToAndroidSettings: isAndroid };
                     }
-                    returnDetails = { feature, redirectedToAndroidSettings: isAndroid };
                   }
                 } catch (err: any) {
                   console.error("Device control failed:", err);
@@ -1903,6 +1968,20 @@ export default function App() {
                   >
                     <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
                     Trades Log
+                  </button>
+                  <button
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setSettingsTab("prompts");
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono tracking-wide transition-all cursor-pointer whitespace-nowrap ${
+                      settingsTab === "prompts"
+                        ? "bg-purple-500/10 border border-purple-500/30 text-purple-400 font-bold"
+                        : "bg-transparent border border-transparent text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-fuchsia-400" />
+                    Prompts
                   </button>
                   <button
                     onClick={() => {
@@ -2599,6 +2678,74 @@ export default function App() {
                           })}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* 9. CUSTOM PROMPTS TAB */}
+                  {settingsTab === "prompts" && (
+                    <div className="space-y-6">
+                      <div className="p-4 bg-[#140b24]/40 border border-fuchsia-500/10 rounded-2xl space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Sliders className="w-4 h-4 text-fuchsia-400" />
+                          <span className="text-xs font-bold text-fuchsia-400 tracking-wider font-mono uppercase">
+                            Cognitive Prompt Customization
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
+                          Modify Haya's base character constraints, styles, and behavioral prompts dynamically. Changes are stored persistently on your device.
+                        </p>
+                      </div>
+
+                      {/* Select Persona to Edit */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-mono tracking-widest text-slate-500 uppercase block">Select Mode to Customize</label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {HAYA_PERSONAS.map((p) => (
+                            <button
+                              key={p.id}
+                              onClick={() => {
+                                triggerHaptic(10);
+                                setEditingPersonaId(p.id);
+                              }}
+                              className={`py-2 px-2 rounded-xl border font-mono text-[10px] flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                                editingPersonaId === p.id
+                                  ? "bg-fuchsia-950/20 border-fuchsia-500/30 text-fuchsia-300 font-bold"
+                                  : "bg-slate-900/40 border-white/5 text-slate-400 hover:bg-slate-900/80"
+                              }`}
+                            >
+                              <span className="text-sm">{p.emoji}</span>
+                              <span className="truncate max-w-full">{p.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Prompt Editor Textarea */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono tracking-widest text-slate-500 uppercase">System Prompt Instructions</span>
+                          <button
+                            onClick={handleResetCustomPrompt}
+                            className="text-[9px] font-mono text-rose-400 hover:text-rose-300 transition-all cursor-pointer"
+                          >
+                            RESET TO DEFAULT
+                          </button>
+                        </div>
+
+                        <textarea
+                          value={customPromptText}
+                          onChange={(e) => setCustomPromptText(e.target.value)}
+                          className="w-full h-44 bg-slate-950/80 border border-white/5 rounded-2xl p-4 text-[11px] font-mono text-slate-300 focus:outline-none focus:border-fuchsia-500/30 leading-relaxed resize-none scrollbar-none"
+                          placeholder="Type system prompts..."
+                        />
+
+                        <button
+                          onClick={handleSaveCustomPrompt}
+                          className="w-full py-3 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-2xl font-mono text-xs tracking-wider font-bold transition-all cursor-pointer shadow-[0_0_15px_rgba(217,70,239,0.3)] uppercase"
+                        >
+                          Save Custom Prompt
+                        </button>
+                      </div>
                     </div>
                   )}
 
