@@ -19,6 +19,7 @@ export class VisionEngine {
   private isProcessingFrame: boolean = false;
   private config: Required<VisionEngineConfig>;
   private lastError: string | null = null;
+  private isCameraFallback: boolean = false;
 
   // Callback to stream Base64 frames
   public onFrameCaptured: ((base64Image: string) => void) | null = null;
@@ -46,46 +47,103 @@ export class VisionEngine {
     return this.lastError;
   }
 
+  private currentMode: "screen" | "camera" = "screen";
+  private currentFacingMode: "user" | "environment" = "environment";
+
+  public getMode(): "screen" | "camera" {
+    return this.currentMode;
+  }
+
+  public getFacingMode(): "user" | "environment" {
+    return this.currentFacingMode;
+  }
+
+  public isUsingCamera(): boolean {
+    return this.isCameraFallback || this.currentMode === "camera";
+  }
+
   /**
-   * Triggers the browser's native getDisplayMedia capture dialog.
+   * Triggers media capture (either getDisplayMedia for screen or getUserMedia for camera).
    * Returns true if permission was granted, false otherwise.
    */
-  public async startCapture(): Promise<boolean> {
+  public async startCapture(mode: "screen" | "camera" = "screen", facingMode: "user" | "environment" = "environment"): Promise<boolean> {
     this.lastError = null;
+    this.currentMode = mode;
+    this.currentFacingMode = facingMode;
+    this.isCameraFallback = (mode === "camera");
+
     if (this.stream) {
       this.stopCapture();
     }
 
-    // Android Native WebView Wrapper Bridge Detection
-    const nativeAndroid = (window as any).Android;
-    if (nativeAndroid && typeof nativeAndroid.startScreenCapture === "function") {
-      console.log("[VisionEngine] Initiating native Android MediaProjection screen capture...");
-      
-      // Inject global frame callback
-      (window as any).onAndroidScreenFrameCaptured = (base64: string) => {
-        if (this.onFrameCaptured) {
-          this.onFrameCaptured(base64);
-        }
-      };
-
-      try {
-        nativeAndroid.startScreenCapture();
-        return true;
-      } catch (err: any) {
-        console.error("Failed to trigger Android native capture:", err);
-        this.lastError = String(err);
-        return false;
-      }
-    }
-
-    // Standard Desktop Browser WebAPI Fallback
     try {
-      this.stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: "monitor", // prefer entire screen, but browser lets user choose
-        },
-        audio: false, // only capture video
-      });
+      if (mode === "camera") {
+        console.log(`Haya Vision Engine: Starting camera capture facing Mode: ${facingMode}`);
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: facingMode,
+            width: { ideal: 800 },
+            height: { ideal: 600 },
+          },
+          audio: false,
+        });
+        this.isCameraFallback = true;
+      } else {
+        // mode === "screen"
+        const hasDisplayMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        if (!hasDisplayMedia || isMobile) {
+          console.log("Haya Vision Engine: getDisplayMedia not supported or running on mobile. Attempting camera fallback...");
+          try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: facingMode, // Use currently configured facingMode
+                width: { ideal: 800 },
+                height: { ideal: 600 },
+              },
+              audio: false,
+            });
+            this.isCameraFallback = true;
+          } catch (camErr: any) {
+            console.warn("Haya Vision Engine: Environment camera fallback failed. Trying any video input...", camErr);
+            try {
+              this.stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false,
+              });
+              this.isCameraFallback = true;
+            } catch (anyCamErr: any) {
+              throw new Error("Screen capture and camera are both unsupported or blocked on this device.");
+            }
+          }
+        } else {
+          try {
+            // Trigger native Screen Capture API
+            this.stream = await navigator.mediaDevices.getDisplayMedia({
+              video: {
+                displaySurface: "monitor", // prefer entire screen, but browser lets user choose
+              },
+              audio: false, // only capture video
+            });
+          } catch (displayErr: any) {
+            const errStr = String(displayErr).toLowerCase();
+            if (errStr.includes("cancel") || errStr.includes("denied") || errStr.includes("notallowed") || errStr.includes("abort")) {
+              throw displayErr;
+            }
+            console.warn("Haya Vision Engine: Screen share failed, trying camera fallback:", displayErr);
+            try {
+              this.stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: facingMode },
+                audio: false,
+              });
+              this.isCameraFallback = true;
+            } catch (camErr) {
+              throw displayErr; // throw original screen-share error if camera also fails
+            }
+          }
+        }
+      }
 
       // Handle user stopping screen share via browser's built-in UI
       const videoTrack = this.stream.getVideoTracks()[0];
@@ -111,7 +169,7 @@ export class VisionEngine {
 
       return true;
     } catch (err: any) {
-      console.error("Haya Vision Engine: Failed to start screen capture:", err);
+      console.error("Haya Vision Engine: Failed to start capture:", err);
       this.lastError = err instanceof Error ? err.message : String(err);
       this.stopCapture();
       return false;
@@ -122,20 +180,10 @@ export class VisionEngine {
    * Stops looking at the screen and cleans up tracks and elements
    */
   public stopCapture(): void {
+    this.isCameraFallback = false;
     if (this.captureIntervalId) {
       clearInterval(this.captureIntervalId);
       this.captureIntervalId = null;
-    }
-
-    // Stop Native Android service if active
-    const nativeAndroid = (window as any).Android;
-    if (nativeAndroid && typeof nativeAndroid.stopScreenCapture === "function") {
-      try {
-        nativeAndroid.stopScreenCapture();
-      } catch (e) {
-        console.warn("Failed to stop Android native capture service:", e);
-      }
-      delete (window as any).onAndroidScreenFrameCaptured;
     }
 
     if (this.stream) {

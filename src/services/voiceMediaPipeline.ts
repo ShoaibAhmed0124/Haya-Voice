@@ -40,6 +40,7 @@ export class VoiceMediaPipeline {
   // Playback Queuing states
   private nextStartTime: number = 0;
   private sampleRate = 24000;
+  private destinationNode: AudioNode | null = null;
 
   // Event callbacks
   private events: PipelineEvents = {};
@@ -88,6 +89,29 @@ export class VoiceMediaPipeline {
 
       this.playbackAnalyser = this.outputCtx.createAnalyser();
       this.playbackAnalyser.fftSize = 256;
+
+      // Force main speaker output workaround for iOS/Android Safari & Chrome
+      this.destinationNode = this.outputCtx.destination;
+      try {
+        const streamDest = this.outputCtx.createMediaStreamDestination();
+        const forceAudioEl = document.getElementById("haya-speakerphone-force") as HTMLAudioElement || document.createElement("audio");
+        forceAudioEl.id = "haya-speakerphone-force";
+        forceAudioEl.autoplay = true;
+        (forceAudioEl as any).playsInline = true;
+        forceAudioEl.setAttribute("playsinline", "true");
+        forceAudioEl.style.display = "none";
+        if (!document.body.contains(forceAudioEl)) {
+          document.body.appendChild(forceAudioEl);
+        }
+        forceAudioEl.srcObject = streamDest.stream;
+        forceAudioEl.play().catch(err => console.log("Loudspeaker auto-play initiated.", err));
+        
+        this.destinationNode = streamDest;
+        console.log("[Loudspeaker Workaround] Pipeline successfully routed AudioContext output to MediaStreamAudioDestinationNode + HTMLAudioElement.");
+      } catch (err) {
+        console.warn("[Loudspeaker Workaround] Pipeline fallback to standard AudioContext.destination", err);
+        this.destinationNode = this.outputCtx.destination;
+      }
 
       // 2. Microphone Capture setup
       this.micStream = await navigator.mediaDevices.getUserMedia({
@@ -219,7 +243,9 @@ export class VoiceMediaPipeline {
       if (this.playbackAnalyser) {
         sourceNode.connect(this.playbackAnalyser);
       }
-      this.playbackAnalyser?.connect(this.outputCtx.destination);
+      if (this.playbackAnalyser && this.destinationNode) {
+        this.playbackAnalyser.connect(this.destinationNode);
+      }
 
       const currentTime = this.outputCtx.currentTime;
       if (this.nextStartTime < currentTime) {

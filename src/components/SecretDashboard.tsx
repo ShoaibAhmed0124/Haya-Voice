@@ -181,7 +181,7 @@ export default function SecretDashboard({
                 <span className="text-[9px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.2 rounded-full uppercase">Classified</span>
               </div>
               <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-1">
-                Commander's Direct Interface
+                Direct Interface
               </h2>
             </div>
           </div>
@@ -291,7 +291,7 @@ export default function SecretDashboard({
                               ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" 
                               : "bg-purple-500/10 text-purple-400 border border-purple-500/20"
                           }`}>
-                            {msg.sender === "user" ? "Commander" : "Haya"}
+                            {msg.sender === "user" ? "You" : "Haya"}
                           </span>
                           <span className="text-[8px] text-slate-600 font-mono">
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -354,6 +354,30 @@ export default function SecretDashboard({
               <div className="space-y-2.5">
                 <label className="text-[10px] font-mono tracking-widest text-slate-500 uppercase block">Hardware Integration</label>
                 
+                {/* Wake Word Toggle */}
+                <div className="flex items-center justify-between p-4 bg-slate-900/30 border border-white/5 rounded-2xl">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-medium text-slate-200 block">Hey Haya Wake-Word</span>
+                    <span className="text-[10px] text-slate-500">Responds dynamically on mic capture</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      triggerHaptic(20);
+                      onWakeWordToggle(!wakeWordEnabled);
+                      triggerOverlay(!wakeWordEnabled ? "Wake-word online" : "Wake-word disabled");
+                    }}
+                    className={`w-10 h-6 rounded-full p-1 transition-all duration-300 cursor-pointer ${
+                      wakeWordEnabled ? "bg-purple-600" : "bg-slate-800"
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white transition-all duration-300 ${
+                        wakeWordEnabled ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 {/* Haptic Toggle */}
                 <div className="flex items-center justify-between p-4 bg-slate-900/30 border border-white/5 rounded-2xl">
                   <div className="space-y-0.5">

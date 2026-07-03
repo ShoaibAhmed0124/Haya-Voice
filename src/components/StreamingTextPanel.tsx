@@ -1,31 +1,33 @@
 import React, { useEffect, useState, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, MessageSquare } from "lucide-react";
+import { motion } from "motion/react";
 
 interface StreamingTextPanelProps {
   text: string;
   isSpeaking: boolean;
   glowColorRGB?: string;
+  theme?: string;
 }
 
 export default function StreamingTextPanel({
   text,
   isSpeaking,
-  glowColorRGB = "168, 85, 247", // Default purple
+  glowColorRGB = "168, 85, 247",
+  theme = "midnight",
 }: StreamingTextPanelProps) {
   const [displayedText, setDisplayedText] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync displayedText with text via typewriter effect
+  const isLight = theme === "light";
+  const glowColor = isLight ? "147, 51, 234" : glowColorRGB;
+
   useEffect(() => {
     if (!text) {
       setDisplayedText("");
       return;
     }
 
-    // If the difference is small, catch up quickly. If big, catch up at steady speed.
     const startTypewriter = () => {
       if (typingTimerRef.current) {
         clearInterval(typingTimerRef.current);
@@ -40,7 +42,6 @@ export default function StreamingTextPanel({
             return prev;
           }
           
-          // Determine how many characters to append
           const diff = text.length - prev.length;
           const increment = diff > 30 ? 5 : diff > 10 ? 3 : 1;
           return prev + text.substring(prev.length, prev.length + increment);
@@ -57,7 +58,6 @@ export default function StreamingTextPanel({
     };
   }, [text]);
 
-  // Auto-scroll to the bottom of the text container as it grows
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -68,54 +68,30 @@ export default function StreamingTextPanel({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -12, scale: 0.98 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="w-full max-w-md mx-auto"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full max-w-lg mx-auto px-4"
     >
       <div 
-        style={{
-          boxShadow: `0 8px 32px rgba(0, 0, 0, 0.5), 0 0 1px rgba(${glowColorRGB}, 0.15)`,
-          borderColor: `rgba(${glowColorRGB}, 0.15)`
-        }}
-        className="bg-slate-950/60 backdrop-blur-xl border rounded-2xl p-4 flex flex-col gap-2.5 max-h-[160px] overflow-hidden"
+        className={`backdrop-blur-md rounded-2xl px-6 py-4 flex flex-col text-center max-h-[140px] overflow-hidden border transition-all duration-300 ${
+          isLight 
+            ? "bg-white/30 text-purple-950 border-purple-200/20 shadow-sm" 
+            : "bg-slate-950/20 text-slate-100 border-white/5 shadow-2xl"
+        }`}
       >
-        {/* Panel Header */}
-        <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-          <div className="flex items-center gap-1.5">
-            <div 
-              style={{ backgroundColor: `rgba(${glowColorRGB}, 0.2)` }}
-              className="p-1 rounded-md"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            </div>
-            <span className="text-[10px] font-mono tracking-widest text-slate-400 uppercase">
-              Haya Live Output
-            </span>
-          </div>
-          {isSpeaking && (
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-[8px] font-mono tracking-wider text-emerald-400 uppercase">
-                Speaking
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Text Area with Auto Scroll */}
         <div 
           ref={containerRef}
-          className="overflow-y-auto no-scrollbar flex-grow pr-1"
+          className="overflow-y-auto no-scrollbar flex-grow"
           style={{ scrollBehavior: "smooth" }}
         >
-          <p className="text-xs text-slate-200 leading-relaxed font-sans font-light">
+          <p className={`text-base leading-relaxed font-sans font-light tracking-wide ${isLight ? "text-purple-950/90" : "text-white/90"}`}>
             {displayedText}
             {displayedText.length < text.length && (
               <span 
-                style={{ backgroundColor: `rgb(${glowColorRGB})` }}
-                className="inline-block w-1.5 h-3.5 ml-0.5 animate-pulse align-middle" 
+                style={{ backgroundColor: `rgb(${glowColor})` }}
+                className="inline-block w-1.5 h-4 ml-1.5 animate-pulse align-middle" 
               />
             )}
           </p>

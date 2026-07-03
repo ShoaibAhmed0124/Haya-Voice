@@ -255,7 +255,7 @@ export class MemoryService {
       importance,
       relationships: meta?.relationships || [],
       projects: meta?.projects || [],
-      people: meta?.people || ["Shoaib"],
+      people: meta?.people || [],
       emotion: meta?.emotion || "neutral",
       confidence: meta?.confidence ?? 1.0,
       id: meta?.id,

@@ -22,11 +22,20 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('Haya Service Worker registered successfully:', reg.scope))
-            .catch(err => console.log('Haya Service Worker registration failed:', err));
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+            console.log('Unregistered active service worker to bypass cache.');
+          }
         });
+        if (window.caches) {
+          caches.keys().then(function(names) {
+            for (let name of names) {
+              caches.delete(name);
+              console.log('Cleared cache:', name);
+            }
+          });
+        }
       }
     </script>
   </body>

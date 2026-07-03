@@ -136,10 +136,47 @@ export class AndroidBridgeManager {
         } catch (_) {}
         return { level: 85, charging: true, success: true };
 
+      case "launchApp":
+        console.log("Launching Android app natively via bridge request:", params);
+        // If the native Kotlin bridge did not execute it (handled by the caller check),
+        // we can try triggering the deep link URL or package-specific intent URL
+        if (typeof window !== "undefined") {
+          const launchUrl = params.url || params.fallbackUrl;
+          if (launchUrl) {
+            try {
+              const iframe = document.createElement("iframe");
+              iframe.style.display = "none";
+              iframe.src = launchUrl;
+              document.body.appendChild(iframe);
+              setTimeout(() => {
+                if (iframe.parentNode) {
+                  iframe.parentNode.removeChild(iframe);
+                }
+              }, 1000);
+            } catch (e) {
+              console.error("AndroidBridge launchApp iframe fallback failed:", e);
+            }
+          }
+          return { success: true };
+        }
+        return { success: false };
+
       case "intent":
         // Fallback for native Android deep links in Chrome or standard browsers
         if (typeof window !== "undefined") {
-          window.location.href = params.url;
+          try {
+            const iframe = document.createElement("iframe");
+            iframe.style.display = "none";
+            iframe.src = params.url || "";
+            document.body.appendChild(iframe);
+            setTimeout(() => {
+              if (iframe.parentNode) {
+                iframe.parentNode.removeChild(iframe);
+              }
+            }, 1000);
+          } catch (e) {
+            console.error("AndroidBridge intent trigger failed:", e);
+          }
           return { success: true };
         }
         return { success: false };
@@ -157,7 +194,7 @@ export class AndroidBridgeManager {
       camera: "Required for computer vision tasks and visual scene understanding.",
       microphone: "Required for high-fidelity Live Voice stream chat with the model.",
       geolocation: "Enables context-aware spatial searches and localized recommendations.",
-      notifications: "Required to keep the Commander informed of critical system events."
+      notifications: "Required to keep you informed of critical system events."
     };
 
     const explanation = explanations[permissionName] || "Required to unlock native hardware layers.";

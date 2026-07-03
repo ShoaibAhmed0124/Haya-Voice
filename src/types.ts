@@ -1,5 +1,28 @@
 export type AssistantState = "disconnected" | "connecting" | "listening" | "speaking" | "error";
 
+export interface HayaMessage {
+  id: string;
+  sender: "user" | "haya";
+  text: string;
+  timestamp: string;
+}
+
+export interface HayaSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  lastModified: string;
+  messages: HayaMessage[];
+  isPinned?: boolean;
+  isArchived?: boolean;
+  summary?: string;
+  keyDecisions?: string[];
+  openTasks?: string[];
+  factsLearned?: string[];
+  runningContext?: string;
+  emoji?: string;
+}
+
 export interface ToolCallPayload {
   name: string;
   args: any;
